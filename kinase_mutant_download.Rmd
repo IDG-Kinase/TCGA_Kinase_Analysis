@@ -1,0 +1,75 @@
+---
+title: "TCGA Kinase Mutation Data Download"
+output: html_notebook
+---
+
+```{r, echo = FALSE}
+library(FirebrowseR)
+library(DarkKinaseTools)
+library(BerginskiRMisc)
+library(readr)
+library(here)
+library(tidyverse)
+```
+
+## Data Collection/Loading
+
+First step is to download the mutational data set from firebrowse that relates to the full set of kinases. This was a bit painful, as it appears that there is some sort of throttling going on that keeps this from working all in one shot. I've added code to check to see if the full data set is available, if so, load it.
+
+```{r}
+mutation_calls = list()
+
+page_num = 1;
+
+#check if a data file has been made with these results, if so, go ahead and load
+#it instead of hitting the API
+if (file.exists(here('data','kinase_MAF.rds'))) {
+  kinase_MAF = read_rds('data/kinase_MAF.rds')
+  page_num = NA;
+}
+if (!dir.exists(here('data'))) dir.create(here('data'))
+
+while (!is.na(page_num)) {
+  print(page_num)
+  #this is all a bit of a hack, but sometimes the API needs multiple tries to
+  #return a set of results, most of the time the second attempt goes through,
+  #I'm not why this is, but here we are
+  api_success = F;
+  while(!api_success) {
+    try (
+      {
+        #had to set this temp variable to deal with the return value from the
+        #firebrowse output being incompatible with dropping right into a list
+        temp = Analyses.Mutation.MAF(
+          gene      = as.character(all_kinases$symbol),
+          page_size = 2000,
+          format    ='csv',
+          page      = page_num);
+        if (!is.null(temp)) {
+          mutation_calls[[page_num]] = temp;
+          api_success = T;
+        }
+      }
+    )
+  }
+  
+  #only the first page will have the column headers, add them back to susequent
+  #pages
+  if (page_num > 1) {
+    names(mutation_calls[[page_num]]) <- names(mutation_calls[[1]])
+  }
+  
+  #a return of less than the full requested 2000 entries means we are at the end
+  #of the mutation set
+  if (dim(mutation_calls[[page_num]])[1] < 2000) {
+    page_num = NA;
+  } else {
+    page_num = page_num + 1;
+  }
+}
+
+if (!file.exists(here('data/kinase_MAF.rds'))) {
+  kinase_MAF = do.call(rbind,mutation_calls)
+  write_rds(kinase_MAF,'data/kinase_MAF.rds')
+}
+```
