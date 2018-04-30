@@ -1,0 +1,130 @@
+---
+title: "TCGA Kinase CNV Analysis"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, echo = FALSE}
+library(FirebrowseR)
+library(DarkKinaseTools)
+library(BerginskiRMisc)
+library(readr)
+library(here)
+library(tidyverse)
+library(progress)
+```
+
+## Data Collection/Loading
+
+This notebook assumes that you have already run the kinase_CNV_download.Rmd
+document and successfully collected the kinase_CNV.rds file.
+
+```{r data_collection, cache=TRUE}
+
+#check if a data file has been made with these results, if so, go ahead and load
+#it, otherwise WARNING!
+if (file.exists(here('data','kinase_CNV.rds'))) {
+  kinase_CNV = read_rds(here('data','kinase_CNV.rds'))
+} else {
+  warning("Couldn't find the kinase_CNV.rds file, did you run the kinase_CNV_download document?")
+}
+
+```
+
+## Data Organization/Analysis
+
+The MAF data is organized to indicate each individual mutation call made in for
+each kinase in each tumor sample. Let's get a count of how often each kinase is
+mutated in each patient and summarize that as a percent.
+
+```{r data_analysis, cache=TRUE}
+#Get the number of samples for each cohort and filter down to only the tumor
+#samples, i.e. not the normal paired samples
+sample_counts = Metadata.Counts(format='csv') %>% filter(sample_type == "Tumor")
+
+kinase_CNV_freq = kinase_CNV %>%
+  #This command fills out blank entires for each combonation of cohort and
+  #Hugo_symbol, useful for the later plotting steps
+  complete(cohort,gene) %>%
+  group_by(cohort,gene) %>%
+  
+  #The cn_alteration column contains the call whether or not an amplication (>
+  #0) or deletion (< 0) has occurred
+  summarise(Amplified_count = sum(cn_alteration > 0),
+            Deletion_count = sum(cn_alteration < 0)) %>%
+  
+  #Collect the cohort counts into the same data structure
+  left_join(sample_counts %>% select(cohort,cn)) %>%
+  
+  #Calculate percentages of amp/deletion
+  mutate(freq_amplification = 100*(Amplified_count/cn),
+         freq_deletion = 100*(Deletion_count/cn)) %>%
+  
+  #Add column with the light/dark classification
+  left_join(DarkKinaseTools::all_kinases %>% select(symbol,class),
+            by=c("gene"="symbol")) %>%
+  
+  #remove and rename columns for cleanup
+  select(-ends_with('_count'),-matches('cn')) %>%
+  rename(gene_id = gene)
+```
+
+
+## Data Visualization {.tabset}
+
+Let's start the data analysis with some heatmaps of the frequency of various types of mutation present in the dark kinases.
+
+### Amplification
+
+```{r amplification, fig.width=17.5}
+dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene_id) %>%
+  summarise(average_mutation = mean(freq_amplification)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_amplification)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_amplification)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Amplification in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
+
+### Deletion
+
+```{r deletion, fig.width=17.5}
+dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene_id) %>%
+  summarise(average_mutation = mean(freq_deletion)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_deletion)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_deletion)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Deletion in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
