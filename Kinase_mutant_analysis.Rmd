@@ -44,9 +44,8 @@ mutated in each patient and summarize that as a percent.
 sample_counts = Metadata.Counts(format='csv') %>% filter(sample_type == "Tumor")
 
 #We'd also like to count the number of times a sample contains one of the frame
-#shift mutations. I couldn't figure out a way to do this with a single dplyr
-#pipe sequence, so I've setup a second count and assigned these counts to the
-#Variant_Classification of simply "Frameshift"
+#shift mutations. These variants should all be counted as frame shift mutants, I
+#think
 frameshift_variants = c("Frame_Shift_Del", "In_Frame_Ins", "In_Frame_Del",
                         "Frame_Shift_Ins")
 
