@@ -1,0 +1,232 @@
+---
+title: "TCGA Kinase Mutation Analysis"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r library_loading}
+library(FirebrowseR)
+library(DarkKinaseTools)
+library(BerginskiRMisc)
+library(readr)
+library(here)
+library(tidyverse)
+library(progress)
+```
+
+## Data Collection/Loading
+
+This notebook assumes that you have already run the kinase_mutant_download.Rmd
+document and successfully collected the kinase_MAF.rds file.
+
+```{r data_collection, cache=TRUE}
+
+#check if a data file has been made with these results, if so, go ahead and load
+#it, otherwise WARNING!
+if (file.exists(here('data','kinase_MAF.rds'))) {
+  kinase_MAF = read_rds('data/kinase_MAF.rds')
+} else {
+  warning("Couldn't find the kinase_MAF.rds file, did you run the kinase_mutant_download document?")
+}
+
+```
+
+## Data Organization/Analysis
+
+The MAF data is organized to indicate each individual mutation call made in for
+each kinase in each tumor sample. Let's get a count of how often each kinase is
+mutated in each patient and summarize that as a percent.
+
+```{r data_analysis, cache=TRUE}
+#Get the number of samples for each cohort and filter down to only the tumor
+#samples, i.e. not the normal paired samples
+sample_counts = Metadata.Counts(format='csv') %>% filter(sample_type == "Tumor")
+
+#We'd also like to count the number of times a sample contains one of the frame
+#shift mutations. These variants should all be counted as frame shift mutants, I
+#think
+frameshift_variants = c("Frame_Shift_Del", "In_Frame_Ins", "In_Frame_Del",
+                        "Frame_Shift_Ins")
+
+#This piped dplyr call takes the raw mutation data: 
+#  -counts the number of hits in various mutation classes
+#  -converts those counts to percentages based on the number of samples 
+#   collected by TCGA
+#  -adds the light/dark classification for each kinase
+#
+# P.S. - Sorry this probably a bit confusing, but I couldn't help myself
+kinase_mutation_freq = kinase_MAF %>%
+  
+  #This command fills out blank entires for each combonation of cohort and
+  #Hugo_symbol, useful for the later plotting steps
+  complete(cohort,Hugo_Symbol) %>%
+  group_by(cohort,Hugo_Symbol) %>%
+  
+  #First get the counts of various types of mutations
+  summarise(missensemutation_count = sum(Variant_Classification %in% "Missense_Mutation"),
+            nonsensemutation_count = sum(Variant_Classification %in% "Nonsense_Mutation"),
+            frameshiftmutation_count = sum(Variant_Classification %in% frameshift_variants),
+            splicesitemutation_count = sum(Variant_Classification %in% "Splice_Site"),
+            silentmutation_count = sum(Variant_Classification %in% "Silent")) %>%
+  
+  #Now get the number of samples in each tumor cohort from the TCGA data, as far
+  #as I can tell this number of samples is stored as maf or rawmaf, depending on
+  #the cohort study
+  left_join(sample_counts %>% select(cohort,maf,rawmaf)) %>%
+  
+  #Convert the raw counts to frequencies of mutation
+  mutate(freq_missensemutation = 100*(missensemutation_count/max(c(rawmaf,maf))),
+         freq_nonsensemutation = 100*(nonsensemutation_count/max(c(rawmaf,maf))),
+         freq_frameshiftmutation = 100*(frameshiftmutation_count/max(c(rawmaf,maf))),
+         freq_splicesitemutation = 100*(splicesitemutation_count/max(c(rawmaf,maf))),
+         freq_silentmutation = 100*(silentmutation_count/max(c(rawmaf,maf)))) %>%
+  rename(gene_id = Hugo_Symbol) %>%
+  
+  #remove the extra unneeded count columns and sample counts
+  select(-ends_with('_count'),-matches('rawmaf'),-matches('maf')) %>%
+  
+  #finally, using the all_kinases list from DarkKinaseTools, add in a column for
+  #the type (light/dark) of each kinase
+  left_join(DarkKinaseTools::all_kinases %>% select(symbol,class),
+            by=c("gene_id"="symbol"))
+```
+
+## Data Visualization {.tabset}
+
+Let's start the data analysis with some heatmaps of the frequency of various types of mutation present in the dark kinases.
+
+### Missense Mutations
+
+```{r missense, fig.width=17.5}
+dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene_id) %>%
+  summarise(average_mutation = mean(freq_missensemutation)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_missensemutation)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_missensemutation)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Missense Mutations in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
+
+### Nonsense Mutations
+
+```{r nonsense, fig.width=17.5}
+dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene_id) %>%
+  summarise(average_mutation = mean(freq_nonsensemutation)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_nonsensemutation)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_nonsensemutation)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Nonsense Mutations in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
+
+### Frameshift Mutations
+
+```{r frameshift, fig.width=17.5}
+dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene_id) %>%
+  summarise(average_mutation = mean(freq_frameshiftmutation)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_frameshiftmutation)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_frameshiftmutation)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Framshift Mutations in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
+
+### Splicesite Mutations
+
+```{r splice, fig.width=17.5}
+dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene_id) %>%
+  summarise(average_mutation = mean(freq_splicesitemutation)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_splicesitemutation)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_splicesitemutation)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Splicesite Mutations in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
+
+### Silent Mutations
+
+```{r silent, fig.width=17.5}
+dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene_id) %>%
+  summarise(average_mutation = mean(freq_silentmutation)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_silentmutation)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_silentmutation)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Silent Mutations in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
