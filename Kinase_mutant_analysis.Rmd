@@ -43,12 +43,6 @@ mutated in each patient and summarize that as a percent.
 #samples, i.e. not the normal paired samples
 sample_counts = Metadata.Counts(format='csv') %>% filter(sample_type == "Tumor")
 
-#Count the number of samples, by the unique tumor sample barcode, that each
-#cohort, gene and variant type
-kinase_mutation_count = kinase_MAF %>%
-  group_by(cohort,Hugo_Symbol,Variant_Classification) %>%
-  summarise(num_times_mutated = length(unique(Tumor_Sample_Barcode)))
-
 #We'd also like to count the number of times a sample contains one of the frame
 #shift mutations. I couldn't figure out a way to do this with a single dplyr
 #pipe sequence, so I've setup a second count and assigned these counts to the
@@ -56,70 +50,47 @@ kinase_mutation_count = kinase_MAF %>%
 frameshift_variants = c("Frame_Shift_Del", "In_Frame_Ins", "In_Frame_Del",
                         "Frame_Shift_Ins")
 
-#Want to summarize the samples that are hit by a frame shift mutation, making a new 
-kinase_frameshift_count = kinase_MAF %>%
-  filter(Variant_Classification %in% frameshift_variants) %>%
+#This piped dplyr call takes the raw mutation data: 
+#  -counts the number of hits in various mutation classes
+#  -converts those counts to percentages based on the number of samples 
+#   collected by TCGA
+#  -adds the light/dark classification for each kinase
+#
+# P.S. - Sorry this probably a bit confusing, but I couldn't help myself
+kinase_mutation_freq = kinase_MAF %>%
+  
+  #This command fills out blank entires for each combonation of cohort and
+  #Hugo_symbol, useful for the later plotting steps
+  complete(cohort,Hugo_Symbol) %>%
   group_by(cohort,Hugo_Symbol) %>%
-  summarise(num_times_mutated = length(unique(Tumor_Sample_Barcode))) %>%
-  mutate(Variant_Classification = "Frameshift")
-
-
-kinase_mutation_count = rbind(kinase_mutation_count,kinase_frameshift_count)
-
-#bring together the counts of patient samples by cohort (I'm not sure what the
-#exact difference is between the maf and rawmaf count is, but they differ) with
-#the counts of how often each mutation is occuring in each kinase
-kinase_mutation_count = left_join(kinase_mutation_count,
-                                  sample_counts %>% select(cohort,maf,rawmaf))
-
-kinase_mutation_count = kinase_mutation_count %>%
-  mutate(percent_mutation = 100*(num_times_mutated/max(c(rawmaf,maf))))
-
-#I can't think of an elegant way to convert the percent mutated number above
-#into a summary table with freq_missensemutation, freq_nonsensemutation,
-#freq_frameshiftmutation, freq_splicesitemutation, so I'll just brute force it
-#with a for loops
-Hugo_names = unique(kinase_mutation_count$Hugo_Symbol)
-cohorts = unique(kinase_mutation_count$cohort)
-
-kinase_mutation_freq = expand.grid(cohorts,Hugo_names);
-kinase_mutation_freq = cbind(
-  expand.grid(cohorts,Hugo_names),
-  rep(0,length(Hugo_names)*length(cohorts)),
-  rep(0,length(Hugo_names)*length(cohorts)),
-  rep(0,length(Hugo_names)*length(cohorts)),
-  rep(0,length(Hugo_names)*length(cohorts)),
-  rep(0,length(Hugo_names)*length(cohorts)))
-
-names(kinase_mutation_freq) <-
-  c('cohort','gene_id','freq_missensemutation','freq_nonsensemutation',
-    'freq_frameshiftmutation','freq_splicesitemutation',
-    'freq_silentmutation')
   
-this_bar = progress_bar$new(total = dim(kinase_mutation_count)[1]);
-for (row_num in 1:dim(kinase_mutation_count)[1]) {
-  this_data = kinase_mutation_count[row_num,]
-  target_row = which(kinase_mutation_freq$cohort == this_data$cohort & 
-                     kinase_mutation_freq$gene_id == this_data$Hugo_Symbol)
-  if (this_data$Variant_Classification == "Missense_Mutation") {
-    kinase_mutation_freq$freq_missensemutation[target_row] = this_data$percent_mutation
-  } else if (this_data$Variant_Classification == "Nonsense_Mutation") {
-    kinase_mutation_freq$freq_nonsensemutation[target_row] = this_data$percent_mutation
-  } else if (this_data$Variant_Classification == "Frameshift") {
-    kinase_mutation_freq$freq_frameshiftmutation[target_row] = this_data$percent_mutation
-  } else if (this_data$Variant_Classification == "Splice_Site") {
-    kinase_mutation_freq$freq_splicesitemutation[target_row] = this_data$percent_mutation
-  } else if (this_data$Variant_Classification == "Silent") {
-    kinase_mutation_freq$freq_silentmutation[target_row] = this_data$percent_mutation
-  }
+  #First get the counts of various types of mutations
+  summarise(missensemutation_count = sum(Variant_Classification %in% "Missense_Mutation"),
+            nonsensemutation_count = sum(Variant_Classification %in% "Nonsense_Mutation"),
+            frameshiftmutation_count = sum(Variant_Classification %in% frameshift_variants),
+            splicesitemutation_count = sum(Variant_Classification %in% "Splice_Site"),
+            silentmutation_count = sum(Variant_Classification %in% "Silent")) %>%
   
-  this_bar$tick()
-}
-
-#Lets add the light/dark kinase class distinction
-kinase_mutation_freq = left_join(kinase_mutation_freq,
-                                 all_kinases %>% select(symbol,class),
-                                 by=c("gene_id"="symbol"))
+  #Now get the number of samples in each tumor cohort from the TCGA data, as far
+  #as I can tell this number of samples is stored as maf or rawmaf, depending on
+  #the cohort study
+  left_join(sample_counts %>% select(cohort,maf,rawmaf)) %>%
+  
+  #Convert the raw counts to frequencies of mutation
+  mutate(freq_missensemutation = 100*(missensemutation_count/max(c(rawmaf,maf))),
+         freq_nonsensemutation = 100*(nonsensemutation_count/max(c(rawmaf,maf))),
+         freq_frameshiftmutation = 100*(frameshiftmutation_count/max(c(rawmaf,maf))),
+         freq_splicesitemutation = 100*(splicesitemutation_count/max(c(rawmaf,maf))),
+         freq_silentmutation = 100*(silentmutation_count/max(c(rawmaf,maf)))) %>%
+  rename(gene_id = Hugo_Symbol) %>%
+  
+  #remove the extra unneeded count columns and sample counts
+  select(-ends_with('_count'),-matches('rawmaf'),-matches('maf')) %>%
+  
+  #finally, using the all_kinases list from DarkKinaseTools, add in a column for
+  #the type (light/dark) of each kinase
+  left_join(DarkKinaseTools::all_kinases %>% select(symbol,class),
+            by=c("gene_id"="symbol"))
 ```
 
 ## Data Visualization {.tabset}
@@ -128,7 +99,7 @@ Let's start the data analysis with some heatmaps of the frequency of various typ
 
 ### Missense Mutations
 
-```{r, fig.width=17.5}
+```{r missense, fig.width=17.5}
 dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
@@ -155,7 +126,7 @@ ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_missensemutation)) +
 
 ### Nonsense Mutations
 
-```{r, fig.width=17.5}
+```{r nonsense, fig.width=17.5}
 dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
@@ -182,7 +153,7 @@ ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_nonsensemutation)) +
 
 ### Frameshift Mutations
 
-```{r, fig.width=17.5}
+```{r frameshift, fig.width=17.5}
 dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
@@ -209,7 +180,7 @@ ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_frameshiftmutation)) 
 
 ### Splicesite Mutations
 
-```{r, fig.width=17.5}
+```{r splice, fig.width=17.5}
 dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
@@ -236,7 +207,7 @@ ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_splicesitemutation)) 
 
 ### Silent Mutations
 
-```{r, fig.width=17.5}
+```{r silent, fig.width=17.5}
 dark_mutation_freq = kinase_mutation_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
