@@ -22,7 +22,9 @@ CNV_calls = list()
 
 gene_CNV_calls = list()
 
-if (!dir.exists(here('data'))) dir.create(here('data'))
+if (!dir.exists(here('CNV_analysis','data'))) {
+  dir.create(here('CNV_analysis','data'),recursive = T)
+}
 
 #A few of the HUGO gene names are not present in the TCGA data, filter those out
 missing_genes = c("COQ8A","COQ8B","GRK2","GRK3","HASPIN","MAP3K20","MAP3K21",
@@ -78,5 +80,5 @@ for (gene in valid_genes$symbol) {
 }
 
 CNV_calls = data.frame(do.call(rbind,gene_CNV_calls),row.names = NULL)
-write_rds(CNV_calls,'data/kinase_CNV.rds')
+write_rds(CNV_calls,here('CNV_analysis','data','kinase_CNV.rds'))
 ```
