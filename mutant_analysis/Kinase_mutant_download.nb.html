@@ -143,7 +143,7 @@ $(document).ready(function () {
 </style>
 <script>
 $(document).ready(function () {
-  window.initializeSourceEmbed("kinase_mutant_download.Rmd");
+  window.initializeSourceEmbed("Kinase_mutant_download.Rmd");
   window.initializeCodeFolding("show" === "show");
 });
 </script>
@@ -182,67 +182,26 @@ $(document).ready(function () {
 <p>First step is to download the mutational data set from firebrowse that relates to the full set of kinases. This was a bit painful, as it appears that there is some sort of throttling going on that keeps this from working all in one shot. I’ve added code to check to see if the full data set is available, if so, load it.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubXV0YXRpb25fY2FsbHMgPSBsaXN0KClcblxucGFnZV9udW0gPSAxO1xuXG4jY2hlY2sgaWYgYSBkYXRhIGZpbGUgaGFzIGJlZW4gbWFkZSB3aXRoIHRoZXNlIHJlc3VsdHMsIGlmIHNvLCBnbyBhaGVhZCBhbmQgbG9hZFxuI2l0IGluc3RlYWQgb2YgaGl0dGluZyB0aGUgQVBJXG5pZiAoZmlsZS5leGlzdHMoaGVyZSgnZGF0YScsJ2tpbmFzZV9NQUYucmRzJykpKSB7XG4gIGtpbmFzZV9NQUYgPSByZWFkX3JkcygnZGF0YS9raW5hc2VfTUFGLnJkcycpXG4gIHBhZ2VfbnVtID0gTkE7XG59XG5pZiAoIWRpci5leGlzdHMoaGVyZSgnZGF0YScpKSkgZGlyLmNyZWF0ZShoZXJlKCdkYXRhJykpXG5cbndoaWxlICghaXMubmEocGFnZV9udW0pKSB7XG4gIHByaW50KHBhZ2VfbnVtKVxuICAjdGhpcyBpcyBhbGwgYSBiaXQgb2YgYSBoYWNrLCBidXQgc29tZXRpbWVzIHRoZSBBUEkgbmVlZHMgbXVsdGlwbGUgdHJpZXMgdG9cbiAgI3JldHVybiBhIHNldCBvZiByZXN1bHRzLCBtb3N0IG9mIHRoZSB0aW1lIHRoZSBzZWNvbmQgYXR0ZW1wdCBnb2VzIHRocm91Z2gsXG4gICNJJ20gbm90IHdoeSB0aGlzIGlzLCBidXQgaGVyZSB3ZSBhcmVcbiAgYXBpX3N1Y2Nlc3MgPSBGO1xuICB3aGlsZSghYXBpX3N1Y2Nlc3MpIHtcbiAgICB0cnkgKFxuICAgICAge1xuICAgICAgICAjaGFkIHRvIHNldCB0aGlzIHRlbXAgdmFyaWFibGUgdG8gZGVhbCB3aXRoIHRoZSByZXR1cm4gdmFsdWUgZnJvbSB0aGVcbiAgICAgICAgI2ZpcmVicm93c2Ugb3V0cHV0IGJlaW5nIGluY29tcGF0aWJsZSB3aXRoIGRyb3BwaW5nIHJpZ2h0IGludG8gYSBsaXN0XG4gICAgICAgIHRlbXAgPSBBbmFseXNlcy5NdXRhdGlvbi5NQUYoXG4gICAgICAgICAgZ2VuZSAgICAgID0gYXMuY2hhcmFjdGVyKGFsbF9raW5hc2VzJHN5bWJvbCksXG4gICAgICAgICAgcGFnZV9zaXplID0gMjAwMCxcbiAgICAgICAgICBmb3JtYXQgICAgPSdjc3YnLFxuICAgICAgICAgIHBhZ2UgICAgICA9IHBhZ2VfbnVtKTtcbiAgICAgICAgaWYgKCFpcy5udWxsKHRlbXApKSB7XG4gICAgICAgICAgbXV0YXRpb25fY2FsbHNbW3BhZ2VfbnVtXV0gPSB0ZW1wO1xuICAgICAgICAgIGFwaV9zdWNjZXNzID0gVDtcbiAgICAgICAgfVxuICAgICAgfVxuICAgIClcbiAgfVxuICBcbiAgI29ubHkgdGhlIGZpcnN0IHBhZ2Ugd2lsbCBoYXZlIHRoZSBjb2x1bW4gaGVhZGVycywgYWRkIHRoZW0gYmFjayB0byBzdXNlcXVlbnRcbiAgI3BhZ2VzXG4gIGlmIChwYWdlX251bSA+IDEpIHtcbiAgICBuYW1lcyhtdXRhdGlvbl9jYWxsc1tbcGFnZV9udW1dXSkgPC0gbmFtZXMobXV0YXRpb25fY2FsbHNbWzFdXSlcbiAgfVxuICBcbiAgI2EgcmV0dXJuIG9mIGxlc3MgdGhhbiB0aGUgZnVsbCByZXF1ZXN0ZWQgMjAwMCBlbnRyaWVzIG1lYW5zIHdlIGFyZSBhdCB0aGUgZW5kXG4gICNvZiB0aGUgbXV0YXRpb24gc2V0XG4gIGlmIChkaW0obXV0YXRpb25fY2FsbHNbW3BhZ2VfbnVtXV0pWzFdIDwgMjAwMCkge1xuICAgIHBhZ2VfbnVtID0gTkE7XG4gIH0gZWxzZSB7XG4gICAgcGFnZV9udW0gPSBwYWdlX251bSArIDE7XG4gIH1cbn1cblxuaWYgKCFmaWxlLmV4aXN0cyhoZXJlKCdkYXRhL2tpbmFzZV9NQUYucmRzJykpKSB7XG4gIGtpbmFzZV9NQUYgPSBkby5jYWxsKHJiaW5kLG11dGF0aW9uX2NhbGxzKVxuICB3cml0ZV9yZHMoa2luYXNlX01BRiwnZGF0YS9raW5hc2VfTUFGLnJkcycpXG59XG5gYGAifQ== -->
-<pre class="r"><code>mutation_calls = list()
-
-page_num = 1;
-
-#check if a data file has been made with these results, if so, go ahead and load
-#it instead of hitting the API
-if (file.exists(here('data','kinase_MAF.rds'))) {
-  kinase_MAF = read_rds('data/kinase_MAF.rds')
-  page_num = NA;
-}
-if (!dir.exists(here('data'))) dir.create(here('data'))
-
-while (!is.na(page_num)) {
-  print(page_num)
-  #this is all a bit of a hack, but sometimes the API needs multiple tries to
-  #return a set of results, most of the time the second attempt goes through,
-  #I'm not why this is, but here we are
-  api_success = F;
-  while(!api_success) {
-    try (
-      {
-        #had to set this temp variable to deal with the return value from the
-        #firebrowse output being incompatible with dropping right into a list
-        temp = Analyses.Mutation.MAF(
-          gene      = as.character(all_kinases$symbol),
-          page_size = 2000,
-          format    ='csv',
-          page      = page_num);
-        if (!is.null(temp)) {
-          mutation_calls[[page_num]] = temp;
-          api_success = T;
-        }
-      }
-    )
-  }
-  
-  #only the first page will have the column headers, add them back to susequent
-  #pages
-  if (page_num &gt; 1) {
-    names(mutation_calls[[page_num]]) &lt;- names(mutation_calls[[1]])
-  }
-  
-  #a return of less than the full requested 2000 entries means we are at the end
-  #of the mutation set
-  if (dim(mutation_calls[[page_num]])[1] &lt; 2000) {
-    page_num = NA;
-  } else {
-    page_num = page_num + 1;
-  }
-}
-
-if (!file.exists(here('data/kinase_MAF.rds'))) {
-  kinase_MAF = do.call(rbind,mutation_calls)
-  write_rds(kinase_MAF,'data/kinase_MAF.rds')
-}</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuYGBgclxubXV0YXRpb25fY2FsbHMgPSBsaXN0KClcblxucGFnZV9udW0gPSAxO1xuXG4jY2hlY2sgaWYgYSBkYXRhIGZpbGUgaGFzIGJlZW4gbWFkZSB3aXRoIHRoZXNlIHJlc3VsdHMsIGlmIHNvLCBnbyBhaGVhZCBhbmQgbG9hZFxuI2l0IGluc3RlYWQgb2YgaGl0dGluZyB0aGUgQVBJXG5pZiAoZmlsZS5leGlzdHMoaGVyZSgnZGF0YScsJ2tpbmFzZV9NQUYucmRzJykpKSB7XG4gIGtpbmFzZV9NQUYgPSByZWFkX3JkcygnZGF0YS9raW5hc2VfTUFGLnJkcycpXG4gIHBhZ2VfbnVtID0gTkE7XG59XG5pZiAoIWRpci5leGlzdHMoaGVyZSgnZGF0YScpKSkgZGlyLmNyZWF0ZShoZXJlKCdkYXRhJykpXG5cbndoaWxlICghaXMubmEocGFnZV9udW0pKSB7XG4gIHByaW50KHBhZ2VfbnVtKVxuICAjdGhpcyBpcyBhbGwgYSBiaXQgb2YgYSBoYWNrLCBidXQgc29tZXRpbWVzIHRoZSBBUEkgbmVlZHMgbXVsdGlwbGUgdHJpZXMgdG9cbiAgI3JldHVybiBhIHNldCBvZiByZXN1bHRzLCBtb3N0IG9mIHRoZSB0aW1lIHRoZSBzZWNvbmQgYXR0ZW1wdCBnb2VzIHRocm91Z2gsXG4gICNJJ20gbm90IHdoeSB0aGlzIGlzLCBidXQgaGVyZSB3ZSBhcmVcbiAgYXBpX3N1Y2Nlc3MgPSBGO1xuICB3aGlsZSghYXBpX3N1Y2Nlc3MpIHtcbiAgICB0cnkgKFxuICAgICAge1xuICAgICAgICAjaGFkIHRvIHNldCB0aGlzIHRlbXAgdmFyaWFibGUgdG8gZGVhbCB3aXRoIHRoZSByZXR1cm4gdmFsdWUgZnJvbSB0aGVcbiAgICAgICAgI2ZpcmVicm93c2Ugb3V0cHV0IGJlaW5nIGluY29tcGF0aWJsZSB3aXRoIGRyb3BwaW5nIHJpZ2h0IGludG8gYSBsaXN0XG4gICAgICAgIHRlbXAgPSBBbmFseXNlcy5NdXRhdGlvbi5NQUYoXG4gICAgICAgICAgZ2VuZSAgICAgID0gYXMuY2hhcmFjdGVyKGFsbF9raW5hc2VzJHN5bWJvbCksXG4gICAgICAgICAgcGFnZV9zaXplID0gMjAwMCxcbiAgICAgICAgICBmb3JtYXQgICAgPSdjc3YnLFxuICAgICAgICAgIHBhZ2UgICAgICA9IHBhZ2VfbnVtKTtcbiAgICAgICAgaWYgKCFpcy5udWxsKHRlbXApKSB7XG4gICAgICAgICAgbXV0YXRpb25fY2FsbHNbW3BhZ2VfbnVtXV0gPSB0ZW1wO1xuICAgICAgICAgIGFwaV9zdWNjZXNzID0gVDtcbiAgICAgICAgfVxuICAgICAgfVxuICAgIClcbiAgfVxuICBcbiAgI29ubHkgdGhlIGZpcnN0IHBhZ2Ugd2lsbCBoYXZlIHRoZSBjb2x1bW4gaGVhZGVycywgYWRkIHRoZW0gYmFjayB0byBzdXNlcXVlbnRcbiAgI3BhZ2VzXG4gIGlmIChwYWdlX251bSA+IDEpIHtcbiAgICBuYW1lcyhtdXRhdGlvbl9jYWxsc1tbcGFnZV9udW1dXSkgPC0gbmFtZXMobXV0YXRpb25fY2FsbHNbWzFdXSlcbiAgfVxuICBcbiAgI2EgcmV0dXJuIG9mIGxlc3MgdGhhbiB0aGUgZnVsbCByZXF1ZXN0ZWQgMjAwMCBlbnRyaWVzIG1lYW5zIHdlIGFyZSBhdCB0aGUgZW5kXG4gICNvZiB0aGUgbXV0YXRpb24gc2V0XG4gIGlmIChkaW0obXV0YXRpb25fY2FsbHNbW3BhZ2VfbnVtXV0pWzFdIDwgMjAwMCkge1xuICAgIHBhZ2VfbnVtID0gTkE7XG4gIH0gZWxzZSB7XG4gICAgcGFnZV9udW0gPSBwYWdlX251bSArIDE7XG4gIH1cbn1cblxuaWYgKCFmaWxlLmV4aXN0cyhoZXJlKCdkYXRhL2tpbmFzZV9NQUYucmRzJykpKSB7XG4gIGtpbmFzZV9NQUYgPSBkby5jYWxsKHJiaW5kLG11dGF0aW9uX2NhbGxzKVxuICB3cml0ZV9yZHMoa2luYXNlX01BRiwnZGF0YS9raW5hc2VfTUFGLnJkcycpXG59XG5gYGBcbmBgYCJ9 -->
+<p><code>r</code>r mutation_calls = list()</p>
+<p>page_num = 1;</p>
+</div>
+<div id="check-if-a-data-file-has-been-made-with-these-results-if-so-go-ahead-and-load" class="section level1">
+<h1>check if a data file has been made with these results, if so, go ahead and load</h1>
+</div>
+<div id="it-instead-of-hitting-the-api" class="section level1">
+<h1>it instead of hitting the API</h1>
+<p>if (file.exists(here(‘data’,‘kinase_MAF.rds’))) { kinase_MAF = read_rds(‘data/kinase_MAF.rds’) page_num = NA; } if (!dir.exists(here(‘data’))) dir.create(here(‘data’))</p>
+<p>while (!is.na(page_num)) { print(page_num) #this is all a bit of a hack, but sometimes the API needs multiple tries to #return a set of results, most of the time the second attempt goes through, #I’m not why this is, but here we are api_success = F; while(!api_success) { try ( { #had to set this temp variable to deal with the return value from the #firebrowse output being incompatible with dropping right into a list temp = Analyses.Mutation.MAF( gene = as.character(all_kinases$symbol), page_size = 2000, format =‘csv’, page = page_num); if (!is.null(temp)) { mutation_calls[[page_num]] = temp; api_success = T; } } ) }</p>
+<p>#only the first page will have the column headers, add them back to susequent #pages if (page_num &gt; 1) { names(mutation_calls[[page_num]]) &lt;- names(mutation_calls[[1]]) }</p>
+<p>#a return of less than the full requested 2000 entries means we are at the end #of the mutation set if (dim(mutation_calls[[page_num]])[1] &lt; 2000) { page_num = NA; } else { page_num = page_num + 1; } }</p>
+<p>if (!file.exists(here(‘data/kinase_MAF.rds’))) { kinase_MAF = do.call(rbind,mutation_calls) write_rds(kinase_MAF,‘data/kinase_MAF.rds’) }</p>
+<pre><code></code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-chunk-end -->
 </div>
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiVENHQSBLaW5hc2UgTXV0YXRpb24gRGF0YSBEb3dubG9hZCIKb3V0cHV0OiBodG1sX25vdGVib29rCi0tLQoKYGBge3IsIGVjaG8gPSBGQUxTRX0KbGlicmFyeShGaXJlYnJvd3NlUikKbGlicmFyeShEYXJrS2luYXNlVG9vbHMpCmxpYnJhcnkoQmVyZ2luc2tpUk1pc2MpCmxpYnJhcnkocmVhZHIpCmxpYnJhcnkoaGVyZSkKbGlicmFyeSh0aWR5dmVyc2UpCmBgYAoKIyMgRGF0YSBDb2xsZWN0aW9uL0xvYWRpbmcKCkZpcnN0IHN0ZXAgaXMgdG8gZG93bmxvYWQgdGhlIG11dGF0aW9uYWwgZGF0YSBzZXQgZnJvbSBmaXJlYnJvd3NlIHRoYXQgcmVsYXRlcyB0byB0aGUgZnVsbCBzZXQgb2Yga2luYXNlcy4gVGhpcyB3YXMgYSBiaXQgcGFpbmZ1bCwgYXMgaXQgYXBwZWFycyB0aGF0IHRoZXJlIGlzIHNvbWUgc29ydCBvZiB0aHJvdHRsaW5nIGdvaW5nIG9uIHRoYXQga2VlcHMgdGhpcyBmcm9tIHdvcmtpbmcgYWxsIGluIG9uZSBzaG90LiBJJ3ZlIGFkZGVkIGNvZGUgdG8gY2hlY2sgdG8gc2VlIGlmIHRoZSBmdWxsIGRhdGEgc2V0IGlzIGF2YWlsYWJsZSwgaWYgc28sIGxvYWQgaXQuCgpgYGB7cn0KbXV0YXRpb25fY2FsbHMgPSBsaXN0KCkKCnBhZ2VfbnVtID0gMTsKCiNjaGVjayBpZiBhIGRhdGEgZmlsZSBoYXMgYmVlbiBtYWRlIHdpdGggdGhlc2UgcmVzdWx0cywgaWYgc28sIGdvIGFoZWFkIGFuZCBsb2FkCiNpdCBpbnN0ZWFkIG9mIGhpdHRpbmcgdGhlIEFQSQppZiAoZmlsZS5leGlzdHMoaGVyZSgnZGF0YScsJ2tpbmFzZV9NQUYucmRzJykpKSB7CiAga2luYXNlX01BRiA9IHJlYWRfcmRzKCdkYXRhL2tpbmFzZV9NQUYucmRzJykKICBwYWdlX251bSA9IE5BOwp9CmlmICghZGlyLmV4aXN0cyhoZXJlKCdkYXRhJykpKSBkaXIuY3JlYXRlKGhlcmUoJ2RhdGEnKSkKCndoaWxlICghaXMubmEocGFnZV9udW0pKSB7CiAgcHJpbnQocGFnZV9udW0pCiAgI3RoaXMgaXMgYWxsIGEgYml0IG9mIGEgaGFjaywgYnV0IHNvbWV0aW1lcyB0aGUgQVBJIG5lZWRzIG11bHRpcGxlIHRyaWVzIHRvCiAgI3JldHVybiBhIHNldCBvZiByZXN1bHRzLCBtb3N0IG9mIHRoZSB0aW1lIHRoZSBzZWNvbmQgYXR0ZW1wdCBnb2VzIHRocm91Z2gsCiAgI0knbSBub3Qgd2h5IHRoaXMgaXMsIGJ1dCBoZXJlIHdlIGFyZQogIGFwaV9zdWNjZXNzID0gRjsKICB3aGlsZSghYXBpX3N1Y2Nlc3MpIHsKICAgIHRyeSAoCiAgICAgIHsKICAgICAgICAjaGFkIHRvIHNldCB0aGlzIHRlbXAgdmFyaWFibGUgdG8gZGVhbCB3aXRoIHRoZSByZXR1cm4gdmFsdWUgZnJvbSB0aGUKICAgICAgICAjZmlyZWJyb3dzZSBvdXRwdXQgYmVpbmcgaW5jb21wYXRpYmxlIHdpdGggZHJvcHBpbmcgcmlnaHQgaW50byBhIGxpc3QKICAgICAgICB0ZW1wID0gQW5hbHlzZXMuTXV0YXRpb24uTUFGKAogICAgICAgICAgZ2VuZSAgICAgID0gYXMuY2hhcmFjdGVyKGFsbF9raW5hc2VzJHN5bWJvbCksCiAgICAgICAgICBwYWdlX3NpemUgPSAyMDAwLAogICAgICAgICAgZm9ybWF0ICAgID0nY3N2JywKICAgICAgICAgIHBhZ2UgICAgICA9IHBhZ2VfbnVtKTsKICAgICAgICBpZiAoIWlzLm51bGwodGVtcCkpIHsKICAgICAgICAgIG11dGF0aW9uX2NhbGxzW1twYWdlX251bV1dID0gdGVtcDsKICAgICAgICAgIGFwaV9zdWNjZXNzID0gVDsKICAgICAgICB9CiAgICAgIH0KICAgICkKICB9CiAgCiAgI29ubHkgdGhlIGZpcnN0IHBhZ2Ugd2lsbCBoYXZlIHRoZSBjb2x1bW4gaGVhZGVycywgYWRkIHRoZW0gYmFjayB0byBzdXNlcXVlbnQKICAjcGFnZXMKICBpZiAocGFnZV9udW0gPiAxKSB7CiAgICBuYW1lcyhtdXRhdGlvbl9jYWxsc1tbcGFnZV9udW1dXSkgPC0gbmFtZXMobXV0YXRpb25fY2FsbHNbWzFdXSkKICB9CiAgCiAgI2EgcmV0dXJuIG9mIGxlc3MgdGhhbiB0aGUgZnVsbCByZXF1ZXN0ZWQgMjAwMCBlbnRyaWVzIG1lYW5zIHdlIGFyZSBhdCB0aGUgZW5kCiAgI29mIHRoZSBtdXRhdGlvbiBzZXQKICBpZiAoZGltKG11dGF0aW9uX2NhbGxzW1twYWdlX251bV1dKVsxXSA8IDIwMDApIHsKICAgIHBhZ2VfbnVtID0gTkE7CiAgfSBlbHNlIHsKICAgIHBhZ2VfbnVtID0gcGFnZV9udW0gKyAxOwogIH0KfQoKaWYgKCFmaWxlLmV4aXN0cyhoZXJlKCdkYXRhL2tpbmFzZV9NQUYucmRzJykpKSB7CiAga2luYXNlX01BRiA9IGRvLmNhbGwocmJpbmQsbXV0YXRpb25fY2FsbHMpCiAgd3JpdGVfcmRzKGtpbmFzZV9NQUYsJ2RhdGEva2luYXNlX01BRi5yZHMnKQp9CmBgYA==</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiVENHQSBLaW5hc2UgTXV0YXRpb24gRGF0YSBEb3dubG9hZCIKb3V0cHV0OiBodG1sX25vdGVib29rCi0tLQoKYGBge3IsIGVjaG8gPSBGQUxTRX0KbGlicmFyeShGaXJlYnJvd3NlUikKbGlicmFyeShEYXJrS2luYXNlVG9vbHMpCmxpYnJhcnkoQmVyZ2luc2tpUk1pc2MpCmxpYnJhcnkocmVhZHIpCmxpYnJhcnkoaGVyZSkKbGlicmFyeSh0aWR5dmVyc2UpCmBgYAoKIyMgRGF0YSBDb2xsZWN0aW9uL0xvYWRpbmcKCkZpcnN0IHN0ZXAgaXMgdG8gZG93bmxvYWQgdGhlIG11dGF0aW9uYWwgZGF0YSBzZXQgZnJvbSBmaXJlYnJvd3NlIHRoYXQgcmVsYXRlcyB0byB0aGUgZnVsbCBzZXQgb2Yga2luYXNlcy4gVGhpcyB3YXMgYSBiaXQgcGFpbmZ1bCwgYXMgaXQgYXBwZWFycyB0aGF0IHRoZXJlIGlzIHNvbWUgc29ydCBvZiB0aHJvdHRsaW5nIGdvaW5nIG9uIHRoYXQga2VlcHMgdGhpcyBmcm9tIHdvcmtpbmcgYWxsIGluIG9uZSBzaG90LiBJJ3ZlIGFkZGVkIGNvZGUgdG8gY2hlY2sgdG8gc2VlIGlmIHRoZSBmdWxsIGRhdGEgc2V0IGlzIGF2YWlsYWJsZSwgaWYgc28sIGxvYWQgaXQuCgpgYGB7cn0KbXV0YXRpb25fY2FsbHMgPSBsaXN0KCkKCnBhZ2VfbnVtID0gMTsKCmlmICghZGlyLmV4aXN0cyhoZXJlKCdtdXRhbnRfYW5hbHlzaXMnLCdkYXRhJykpKSBkaXIuY3JlYXRlKGhlcmUoJ211dGFudF9hbmFseXNpcycsJ2RhdGEnKSkKCndoaWxlICghaXMubmEocGFnZV9udW0pKSB7CiAgcHJpbnQocGFnZV9udW0pCiAgI3RoaXMgaXMgYWxsIGEgYml0IG9mIGEgaGFjaywgYnV0IHNvbWV0aW1lcyB0aGUgQVBJIG5lZWRzIG11bHRpcGxlIHRyaWVzIHRvCiAgI3JldHVybiBhIHNldCBvZiByZXN1bHRzLCBtb3N0IG9mIHRoZSB0aW1lIHRoZSBzZWNvbmQgYXR0ZW1wdCBnb2VzIHRocm91Z2gsCiAgI0knbSBub3Qgd2h5IHRoaXMgaXMsIGJ1dCBoZXJlIHdlIGFyZQogIGFwaV9zdWNjZXNzID0gRjsKICB3aGlsZSghYXBpX3N1Y2Nlc3MpIHsKICAgIHRyeSAoCiAgICAgIHsKICAgICAgICAjaGFkIHRvIHNldCB0aGlzIHRlbXAgdmFyaWFibGUgdG8gZGVhbCB3aXRoIHRoZSByZXR1cm4gdmFsdWUgZnJvbSB0aGUKICAgICAgICAjZmlyZWJyb3dzZSBvdXRwdXQgYmVpbmcgaW5jb21wYXRpYmxlIHdpdGggZHJvcHBpbmcgcmlnaHQgaW50byBhIGxpc3QKICAgICAgICB0ZW1wID0gQW5hbHlzZXMuTXV0YXRpb24uTUFGKAogICAgICAgICAgZ2VuZSAgICAgID0gYXMuY2hhcmFjdGVyKGFsbF9raW5hc2VzJHN5bWJvbCksCiAgICAgICAgICBwYWdlX3NpemUgPSAyMDAwLAogICAgICAgICAgZm9ybWF0ICAgID0nY3N2JywKICAgICAgICAgIHBhZ2UgICAgICA9IHBhZ2VfbnVtKTsKICAgICAgICBpZiAoIWlzLm51bGwodGVtcCkpIHsKICAgICAgICAgIG11dGF0aW9uX2NhbGxzW1twYWdlX251bV1dID0gdGVtcDsKICAgICAgICAgIGFwaV9zdWNjZXNzID0gVDsKICAgICAgICB9CiAgICAgIH0KICAgICkKICB9CiAgCiAgI29ubHkgdGhlIGZpcnN0IHBhZ2Ugd2lsbCBoYXZlIHRoZSBjb2x1bW4gaGVhZGVycywgYWRkIHRoZW0gYmFjayB0byBzdXNlcXVlbnQKICAjcGFnZXMKICBpZiAocGFnZV9udW0gPiAxKSB7CiAgICBuYW1lcyhtdXRhdGlvbl9jYWxsc1tbcGFnZV9udW1dXSkgPC0gbmFtZXMobXV0YXRpb25fY2FsbHNbWzFdXSkKICB9CiAgCiAgI2EgcmV0dXJuIG9mIGxlc3MgdGhhbiB0aGUgZnVsbCByZXF1ZXN0ZWQgMjAwMCBlbnRyaWVzIG1lYW5zIHdlIGFyZSBhdCB0aGUgZW5kCiAgI29mIHRoZSBtdXRhdGlvbiBzZXQKICBpZiAoZGltKG11dGF0aW9uX2NhbGxzW1twYWdlX251bV1dKVsxXSA8IDIwMDApIHsKICAgIHBhZ2VfbnVtID0gTkE7CiAgfSBlbHNlIHsKICAgIHBhZ2VfbnVtID0gcGFnZV9udW0gKyAxOwogIH0KfQoKa2luYXNlX01BRiA9IGRvLmNhbGwocmJpbmQsbXV0YXRpb25fY2FsbHMpCndyaXRlX3JkcyhraW5hc2VfTUFGLGhlcmUoJ211dGFudF9hbmFseXNpcycsJ2RhdGEnLCdraW5hc2VfTUFGLnJkcycpKQpgYGA=</div>
 
 
 

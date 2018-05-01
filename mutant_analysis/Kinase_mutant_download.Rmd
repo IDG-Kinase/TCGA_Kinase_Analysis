@@ -21,13 +21,7 @@ mutation_calls = list()
 
 page_num = 1;
 
-#check if a data file has been made with these results, if so, go ahead and load
-#it instead of hitting the API
-if (file.exists(here('data','kinase_MAF.rds'))) {
-  kinase_MAF = read_rds('data/kinase_MAF.rds')
-  page_num = NA;
-}
-if (!dir.exists(here('data'))) dir.create(here('data'))
+if (!dir.exists(here('mutant_analysis','data'))) dir.create(here('mutant_analysis','data'))
 
 while (!is.na(page_num)) {
   print(page_num)
@@ -68,8 +62,6 @@ while (!is.na(page_num)) {
   }
 }
 
-if (!file.exists(here('data/kinase_MAF.rds'))) {
-  kinase_MAF = do.call(rbind,mutation_calls)
-  write_rds(kinase_MAF,'data/kinase_MAF.rds')
-}
+kinase_MAF = do.call(rbind,mutation_calls)
+write_rds(kinase_MAF,here('mutant_analysis','data','kinase_MAF.rds'))
 ```
