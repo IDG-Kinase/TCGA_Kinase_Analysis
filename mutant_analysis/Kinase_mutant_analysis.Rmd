@@ -24,8 +24,8 @@ document and successfully collected the kinase_MAF.rds file.
 
 #check if a data file has been made with these results, if so, go ahead and load
 #it, otherwise WARNING!
-if (file.exists(here('data','kinase_MAF.rds'))) {
-  kinase_MAF = read_rds('data/kinase_MAF.rds')
+if (file.exists(here('mutant_analysis','data','kinase_MAF.rds'))) {
+  kinase_MAF = read_rds(here('mutant_analysis','data','kinase_MAF.rds'))
 } else {
   warning("Couldn't find the kinase_MAF.rds file, did you run the kinase_mutant_download document?")
 }
@@ -63,7 +63,9 @@ kinase_mutation_freq = kinase_MAF %>%
   complete(cohort,Hugo_Symbol) %>%
   group_by(cohort,Hugo_Symbol) %>%
   
-  #First get the counts of various types of mutations
+  #First get the counts of various types of mutations. I'm using the %in%
+  #notation because it seems to play well with the call to complete earlier in
+  #the pipe sequence, giving 0 for missing mutations instead of NA
   summarise(missensemutation_count = sum(Variant_Classification %in% "Missense_Mutation"),
             nonsensemutation_count = sum(Variant_Classification %in% "Nonsense_Mutation"),
             frameshiftmutation_count = sum(Variant_Classification %in% frameshift_variants),
@@ -81,9 +83,10 @@ kinase_mutation_freq = kinase_MAF %>%
          freq_frameshiftmutation = 100*(frameshiftmutation_count/max(c(rawmaf,maf))),
          freq_splicesitemutation = 100*(splicesitemutation_count/max(c(rawmaf,maf))),
          freq_silentmutation = 100*(silentmutation_count/max(c(rawmaf,maf)))) %>%
-  rename(gene_id = Hugo_Symbol) %>%
   
-  #remove the extra unneeded count columns and sample counts
+  #remove the extra unneeded count columns and sample counts and rename the gene
+  #name column
+  rename(gene_id = Hugo_Symbol) %>%
   select(-ends_with('_count'),-matches('rawmaf'),-matches('maf')) %>%
   
   #finally, using the all_kinases list from DarkKinaseTools, add in a column for
