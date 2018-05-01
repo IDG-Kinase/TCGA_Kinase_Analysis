@@ -24,8 +24,8 @@ document and successfully collected the kinase_CNV.rds file.
 
 #check if a data file has been made with these results, if so, go ahead and load
 #it, otherwise WARNING!
-if (file.exists(here('data','kinase_CNV.rds'))) {
-  kinase_CNV = read_rds(here('data','kinase_CNV.rds'))
+if (file.exists(here('CNV_analysis','data','kinase_CNV.rds'))) {
+  kinase_CNV = read_rds(here('CNV_analysis','data','kinase_CNV.rds'))
 } else {
   warning("Couldn't find the kinase_CNV.rds file, did you run the kinase_CNV_download document?")
 }
