@@ -68,6 +68,8 @@ kinase_CNV_freq = kinase_CNV %>%
   #remove and rename columns for cleanup
   select(-ends_with('_count'),-matches('cn')) %>%
   rename(gene_id = gene)
+
+readr::write_csv(kinase_CNV_freq,here('CNV_analysis','data','kinase_CNV_rates.csv'))
 ```
 
 

@@ -93,6 +93,8 @@ kinase_mutation_freq = kinase_MAF %>%
   #the type (light/dark) of each kinase
   left_join(DarkKinaseTools::all_kinases %>% select(symbol,class),
             by=c("gene_id"="symbol"))
+
+readr::write_csv(kinase_mutation_freq,here('mutant_analysis','data','kinase_mutations.csv'))
 ```
 
 ## Data Visualization {.tabset}
