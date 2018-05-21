@@ -1,0 +1,150 @@
+---
+title: "TCGA Kinase Mutation Location Analysis"
+output:
+  html_document:
+    df_print: paged
+    code_folding: hide
+---
+
+```{r library}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(BerginskiRMisc))
+suppressPackageStartupMessages(library(broom))
+```
+
+##Data Loading and Organizing
+
+The raw data consists of the mutations in each of the kinases detected in the TCGA data set. In addition, the start and stop location of each kinase was loaded from the kinase.com list and put into the DarkKinaseTools package. The following code parses the location of each protein changing mutation from the TCGA list and then determines if this location is between the start and stop location of the appropriate kinase.
+
+```{r data_reading, cache=TRUE}
+kinase_MAF = read_rds(here('mutant_analysis','data','kinase_MAF.rds')) %>%
+  #lets only deal with changes that actually modify the protein sequence, so no
+  #mutations to splice sites, 5'-UTR...
+  #Note that this still includes the Silent mutations
+  filter(Protein_Change != "")
+
+#this regexp captures the number between the two amino acid one-letter codes,
+#note that * is used to signify the nonsense mutations
+mutation_locations = str_match(kinase_MAF$Protein_Change,"p.[[:alpha:]](\\d+)[[[:alpha:]]|*]")
+kinase_MAF$Mutation_location = as.numeric(mutation_locations[,2])
+
+#There are some more complicated mutation codes (~900) in the Protein Change
+#column, these appear to mostly be related to frame shifts. Let's not deal with
+#those.
+kinase_MAF = kinase_MAF %>% filter(!is.na(Mutation_location))
+
+kin_domain_locations = suppressMessages(left_join(kin_domain_locations,all_kinases)) %>%
+  select(start, stop, protein_length, symbol, class)
+
+kinase_MAF = suppressWarnings(left_join(kinase_MAF,kin_domain_locations,by=c("Hugo_Symbol"="symbol"))) %>%
+  #some of the kinases don't have IDed domains in the kinase.com data, so let's get rid of them
+  filter(!is.na(start) & !is.na(stop))
+
+#OK, we've got the start and stop location of the kinase domains, so let's run
+#through and mark hits inside the domain and outside the domain. Also, between
+#doesn't appear to work like other dplyr functions (maybe it isn't dplyr), so
+#I'll need a for loop. This takes some time.
+kinase_MAF = kinase_MAF %>% mutate(In_Kin_Domain = 0)
+
+for (row_num in 1:dim(kinase_MAF)[1]) {
+  kin_data = kinase_MAF[row_num,]
+  if (between(kin_data$Mutation_location,kin_data$start,kin_data$stop)) {
+    kinase_MAF$In_Kin_Domain[row_num] = 1;
+  }
+}
+```
+
+##Data Analysis
+
+My first thought is to take a look at the kinases with the most and least mutations in the kinase domains for both the light and dark kinases. The 
+
+```{r top_hits_calc}
+top_dark_kinases = kinase_MAF %>%
+  filter(Variant_Classification != "Silent", class == "Dark") %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(total_mutations_in_domain = sum(In_Kin_Domain),
+            total_mutation_count = n()) %>%
+  top_n(10,total_mutations_in_domain) %>%
+  arrange(desc(total_mutations_in_domain))
+
+bottom_dark_kinases = kinase_MAF %>%
+  filter(Variant_Classification != "Silent", class == "Dark") %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(total_mutations_in_domain = sum(In_Kin_Domain),
+            total_mutation_count = n()) %>%
+  arrange(total_mutations_in_domain) %>% 
+  slice(1:10)
+  
+top_light_kinases = kinase_MAF %>%
+  filter(Variant_Classification != "Silent", class == "Light") %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(total_mutations_in_domain = sum(In_Kin_Domain),
+            total_mutation_count = n()) %>%
+  top_n(10,total_mutations_in_domain) %>%
+  arrange(desc(total_mutations_in_domain))
+
+bottom_light_kinases = kinase_MAF %>%
+  filter(Variant_Classification != "Silent", class == "Light") %>%
+  group_by(Hugo_Symbol) %>%
+  summarise(total_mutations_in_domain = sum(In_Kin_Domain),
+            total_mutation_count = n()) %>%
+  arrange(total_mutations_in_domain) %>% 
+  slice(1:10)
+
+knitr::kable(top_light_kinases, caption = "Light Kinases with the Most Mutations in the Kinase Domain")
+knitr::kable(bottom_light_kinases, caption = "Light Kinases with the Least Mutations in the Kinase Domain")
+knitr::kable(top_dark_kinases, caption = "Dark Kinases with the Most Mutations in the Kinase Domain")
+knitr::kable(bottom_dark_kinases, caption = "Dark Kinases with the Least Mutations in the Kinase Domain")
+```
+
+##Data Analysis
+
+There are probably lots of ways to analyze this data, but my first thought is to simply count the percentage of mutations inside the kinase domain and compare this value to the percentage of each protein that is part of the kinase domain. How about this:
+
+$$100*(\frac{\text{# hits in domain}}{\text{# hits total}} - \frac{\text{total domain lengths}}{\text{total protein length}}) = \text{Kinase Domain Enrichment Score (KDES)}$$
+
+This also takes care of making an acronym, which is required when doing science. This value can vary from 0-100. My interpretation of this value is that high numbers indicate that there are more hits in the kinase domain than expected, while low values indicate that there are fewer hits in the kinase domain than expected. 
+
+As for what makes a high or low value, let's assume that the silent (non-protein changing) mutations are evenly distributed across each protein, so the predicted KDES for silent mutations should be zero. I've also filtered this to only deal with genes/mutation type interactions with at least 5 hits.
+
+```{r silent_KDES}
+kinase_KDES = kinase_MAF %>%
+  group_by(Hugo_Symbol,Variant_Classification) %>%
+  mutate(percent_kin_domain = (stop - start)/protein_length) %>%
+  summarise(percent_in_domain = round(mean(In_Kin_Domain)*100,1), 
+            percent_kin_domain = round(first(percent_kin_domain)*100,1),
+            mutation_count = n()) %>%
+  mutate(KDES = percent_in_domain - percent_kin_domain) %>%
+  filter(mutation_count >= 5)
+
+kinase_silent_KDES = kinase_KDES %>% filter(Variant_Classification == "Silent")
+
+ggplot(kinase_silent_KDES,aes(x=KDES)) + geom_histogram(aes(y= ..density..),bins=30) + 
+  theme_berginski() + labs(x="Silent Mutation KDES",y='% of Values') + ggtitle('Silent Mutation KDES Distribution')
+```
+
+This certainly looks like it's centered around 0. The mean is `r round(mean(kinase_silent_KDES$KDES),1)`%, the 95% conf int is (`r round(tidy(t.test(kinase_silent_KDES$KDES))$conf.low,1)`%, `r round(tidy(t.test(kinase_silent_KDES$KDES))$conf.high,1)`%). Of these KDES values about 95% reside from -25% - +25%, let's assume this is the natural variation in the value, so let's mark these values in the other mutation types and take a look at them.
+
+
+```{r all_KDES}
+ggplot(kinase_KDES,aes(x=KDES)) + geom_histogram(aes(y= ..density..),bins=30) + 
+  theme_berginski() + labs(x="Mutation Type KDES",y='% of Values') + 
+  geom_vline(aes(xintercept = -25)) + geom_vline(aes(xintercept = 25)) + 
+  facet_wrap( ~ Variant_Classification, ncol=3)
+```
+
+OK, of the other mutation types, Missense looks almost identical to Silent, so there probably isn't anything there. The other mutation types show flatter distributions. Maybe something interesting going with the kinases out on the tails of the Nonsense_Mutation, with values on the high end appearing to attract protein stopping mutations in the kinase domain while low values indicating the opposite. The dark kinases on the tails of the Nonsense_Mutation as follows:
+
+```{r}
+nonsense_kinase_KDES = kinase_KDES %>%
+  filter(Variant_Classification == "Nonsense_Mutation", KDES < -25 | KDES > 25)
+
+nonsense_kinase_KDES = left_join(nonsense_kinase_KDES,select(all_kinases,c('symbol','class')),by=c('Hugo_Symbol'='symbol'))
+
+nonsense_kinase_KDES = nonsense_kinase_KDES %>% filter(class == "Dark") %>%
+  arrange(KDES)
+
+knitr::kable(nonsense_kinase_KDES, caption = "Dark Kinases with extreme Nonsense Mutation KDES Values")
+```
