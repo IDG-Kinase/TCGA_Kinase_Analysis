@@ -99,7 +99,7 @@ readr::write_csv(kinase_mutation_freq,here('mutant_analysis','data','kinase_muta
 
 ## Data Visualization {.tabset}
 
-Let's start the data analysis with some heatmaps of the frequency of various types of mutation present in the dark kinases.
+Let's start the data analysis with some heatmaps of the frequency of various types of mutations present in the dark kinases.
 
 ### Missense Mutations
 
@@ -235,3 +235,4 @@ ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_silentmutation)) +
   ggtitle("Frequency of Silent Mutations in TCGA Dark Kinases") +
   labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
 ```
+
