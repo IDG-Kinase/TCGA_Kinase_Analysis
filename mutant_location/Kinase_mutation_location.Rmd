@@ -58,7 +58,7 @@ for (row_num in 1:dim(kinase_MAF)[1]) {
 
 ##Data Analysis
 
-My first thought is to take a look at the kinases with the most and least mutations in the kinase domains for both the light and dark kinases. The 
+My first thought is to take a look at the kinases with the most and least mutations in the kinase domains for both the light and dark kinases. I've filtered out the Silent mutations and segmented the data into light and dark kinases.
 
 ```{r top_hits_calc}
 top_dark_kinases = kinase_MAF %>%

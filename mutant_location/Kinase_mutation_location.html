@@ -187,7 +187,7 @@ for (row_num in 1:dim(kinase_MAF)[1]) {
 </div>
 <div id="data-analysis" class="section level2">
 <h2>Data Analysis</h2>
-<p>My first thought is to take a look at the kinases with the most and least mutations in the kinase domains for both the light and dark kinases. The</p>
+<p>My first thought is to take a look at the kinases with the most and least mutations in the kinase domains for both the light and dark kinases. I’ve filtered out the Silent mutations and segmented the data into light and dark kinases.</p>
 <pre class="r"><code>top_dark_kinases = kinase_MAF %&gt;%
   filter(Variant_Classification != &quot;Silent&quot;, class == &quot;Dark&quot;) %&gt;%
   group_by(Hugo_Symbol) %&gt;%
