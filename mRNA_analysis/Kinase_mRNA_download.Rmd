@@ -1,0 +1,97 @@
+---
+title: "TCGA mRNA Analysis"
+author: "Matthew Berginski"
+output: html_document
+---
+
+```{r setup, echo = FALSE}
+suppressPackageStartupMessages(library(FirebrowseR))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(BerginskiRMisc))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(progress))
+```
+
+## Data Collection/Loading
+
+```{r}
+mRNA_data = list()
+
+gene_mRNA_data = list()
+
+output_dir = here('mRNA_analysis','data');
+
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir,recursive = T)
+}
+
+#A few of the HUGO gene names are not present in the TCGA data, filter those out
+missing_genes = c("COQ8A","COQ8B","CSNK2A3","GRK2","GRK3","HASPIN","MAP3K19",
+                  "MAP3K20","MAP3K21","MOK","NIM1K","PAK5","PEAK1","POMK","PRAG1","SBK3",
+                  "STK26","STKLD1")
+valid_genes = all_kinases %>%
+  filter(!symbol %in% missing_genes)
+
+this_bar = progress_bar$new(total = length(valid_genes$symbol));
+for (gene in valid_genes$symbol) {
+  page_num = 1;
+
+  while (!is.na(page_num)) {
+    #this is all a bit of a hack, but sometimes the API needs multiple tries to
+    #return a set of results, most of the time the second attempt goes through,
+    #I'm not why this is, but here we are
+    api_success = F;
+    while(!api_success) {
+      tryCatch (
+        {
+          #had to set this temp variable to deal with the return value from the
+          #firebrowse output being incompatible with dropping right into a list
+          temp = Samples.mRNASeq(
+            gene      = as.character(gene),
+            page_size = 2000,
+            format    ='csv',
+            page      = page_num);
+          if (!is.null(temp)) {
+            gene_mRNA_data[[gene]][[page_num]] = temp;
+            api_success = T;
+          }
+        }
+      )
+    }
+    
+    #only the first page will have the column headers, add them back to susequent
+    #pages
+    if (page_num > 1) {
+      names(gene_mRNA_data[[gene]][[page_num]]) <- names(gene_mRNA_data[[gene]][[1]])
+    }
+    
+    #a return of less than the full requested 2000 entries means we are at the end
+    #of the mutation set
+    
+    if (dim(gene_mRNA_data[[gene]][[page_num]])[1] < 2000) {
+      page_num = NA;
+    } else {
+      page_num = page_num + 1;
+    }
+  }
+  
+  gene_mRNA_data[[gene]] = data.frame(do.call(rbind,gene_mRNA_data[[gene]]),row.names = NULL)
+  this_bar$tick()
+}
+
+mRNA_data = data.frame(do.call(rbind,gene_mRNA_data),row.names = NULL)
+write_rds(mRNA_data,here('mRNA_analysis','data','kinase_mRNA.rds'))
+```
+
+```{r}
+mRNA_data = do.call(rbind,mRNA_data)
+write_rds(mRNA_data,here('mRNA_analysis','data','mRNA_data.rds'))
+
+
+# mRNA.Exp = Samples.mRNASeq(format = "csv",
+#                            gene = as.character(all_kinases$symbol)
+#                            )
+# mRNA.Exp[, c("tcga_participant_barcode", "expression_log2", "z.score")]
+```
