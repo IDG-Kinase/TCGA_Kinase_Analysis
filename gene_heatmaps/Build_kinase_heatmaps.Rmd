@@ -1,0 +1,79 @@
+---
+title: "TCGA Kinase Mutation Analysis"
+output:
+  html_document:
+    code_folding: hide
+---
+
+```{r library_loading}
+library(FirebrowseR)
+library(DarkKinaseTools)
+library(BerginskiRMisc)
+library(readr)
+library(here)
+library(tidyverse)
+library(progress)
+```
+
+## Data Collection/Loading
+
+```{r data_collection, cache=TRUE}
+kinase_mutation_freq = read_csv(here('mutant_analysis','data','kinase_mutations.csv'))
+kinase_CNV_freq = read_csv(here('CNV_analysis','data','kinase_CNV_rates.csv'))
+```
+
+## Data Visualization 
+```{r mutation_vis}
+dir.create(here('mutant_gene_heatmaps','mutation_heatmaps'),showWarnings = F)
+for (kinase in unique(kinase_mutation_freq$gene_id)) {
+  this_kinase = kinase_mutation_freq %>% 
+    filter(gene_id == kinase) %>% 
+    select(-gene_id,-class) %>% 
+    gather(mutation_type,mutation_freq,-cohort) %>%
+    mutate(mutation_type = 
+             case_when(
+               mutation_type == "freq_missensemutation" ~ "Missense",
+               mutation_type == "freq_nonsensemutation" ~ "Nonsense",
+               mutation_type == "freq_frameshiftmutation" ~ "Frameshift",
+               mutation_type == "freq_splicesitemutation" ~ "Splice Site",
+               mutation_type == "freq_silentmutation" ~ "Silent",
+               TRUE ~ "EHH?"
+             )
+    )
+  ggplot(this_kinase,aes(x=cohort,y=mutation_type,fill=mutation_freq)) +
+    geom_tile() + 
+    scale_fill_distiller(direction=1,palette = 'YlOrRd',name="Percent\nSamples\nwith Mutation") + 
+    theme_berginski() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+          axis.title = element_text(size=25)) +
+    labs(x='Cancer Type',y='') +
+    ggtitle(paste('TCGA Mutations in', kinase))
+  ggsave(here('mutant_gene_heatmaps','mutation_heatmaps',paste0(kinase,'.svg')),height=2.75)
+}
+```
+
+```{r CNV_vis}
+dir.create(here('mutant_gene_heatmaps','CNV_heatmaps'),showWarnings = F)
+for (kinase in unique(kinase_CNV_freq$gene_id)) {
+  this_kinase = kinase_CNV_freq %>% 
+    filter(gene_id == kinase) %>% 
+    select(-gene_id,-class) %>% 
+    gather(mutation_type,mutation_freq,-cohort) %>%
+    mutate(mutation_type = 
+             case_when(
+               mutation_type == "freq_deletion" ~ "Deletion",
+               mutation_type == "freq_amplification" ~ "Amplification",
+               TRUE ~ "EHH?"
+             )
+    )
+  ggplot(this_kinase,aes(x=cohort,y=mutation_type,fill=mutation_freq)) +
+    geom_tile() + 
+    scale_fill_distiller(direction=1,name="Percent\nSamples\nwith Mutation") + 
+    theme_berginski() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+          axis.title = element_text(size=25)) +
+    labs(x='Cancer Type',y='') +
+    ggtitle(paste('TCGA Copy Number Variation in', kinase))
+  ggsave(here('mutant_gene_heatmaps','CNV_heatmaps',paste0(kinase,'.svg')),height=2.75)
+}
+```
