@@ -84,14 +84,3 @@ for (gene in valid_genes$symbol) {
 mRNA_data = data.frame(do.call(rbind,gene_mRNA_data),row.names = NULL)
 write_rds(mRNA_data,here('mRNA_analysis','data','kinase_mRNA.rds'))
 ```
-
-```{r}
-mRNA_data = do.call(rbind,mRNA_data)
-write_rds(mRNA_data,here('mRNA_analysis','data','mRNA_data.rds'))
-
-
-# mRNA.Exp = Samples.mRNASeq(format = "csv",
-#                            gene = as.character(all_kinases$symbol)
-#                            )
-# mRNA.Exp[, c("tcga_participant_barcode", "expression_log2", "z.score")]
-```
