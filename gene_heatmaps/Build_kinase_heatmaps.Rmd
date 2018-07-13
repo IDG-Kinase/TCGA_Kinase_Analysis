@@ -20,11 +20,12 @@ library(progress)
 ```{r data_collection, cache=TRUE}
 kinase_mutation_freq = read_csv(here('mutant_analysis','data','kinase_mutations.csv'))
 kinase_CNV_freq = read_csv(here('CNV_analysis','data','kinase_CNV_rates.csv'))
+kinase_mRNA_summary = read_csv(here('mRNA_analysis','data','kinase_mRNA_summary.csv'))
 ```
 
 ## Data Visualization 
 ```{r mutation_vis}
-dir.create(here('mutant_gene_heatmaps','mutation_heatmaps'),showWarnings = F)
+dir.create(here('gene_heatmaps','mutation_heatmaps'),showWarnings = F)
 for (kinase in unique(kinase_mutation_freq$gene_id)) {
   this_kinase = kinase_mutation_freq %>% 
     filter(gene_id == kinase) %>% 
@@ -48,12 +49,12 @@ for (kinase in unique(kinase_mutation_freq$gene_id)) {
           axis.title = element_text(size=25)) +
     labs(x='Cancer Type',y='') +
     ggtitle(paste('TCGA Mutations in', kinase))
-  ggsave(here('mutant_gene_heatmaps','mutation_heatmaps',paste0(kinase,'.svg')),height=2.75)
+  ggsave(here('gene_heatmaps','mutation_heatmaps',paste0(kinase,'.svg')),height=2.75)
 }
 ```
 
 ```{r CNV_vis}
-dir.create(here('mutant_gene_heatmaps','CNV_heatmaps'),showWarnings = F)
+dir.create(here('gene_heatmaps','CNV_heatmaps'),showWarnings = F)
 for (kinase in unique(kinase_CNV_freq$gene_id)) {
   this_kinase = kinase_CNV_freq %>% 
     filter(gene_id == kinase) %>% 
@@ -74,6 +75,28 @@ for (kinase in unique(kinase_CNV_freq$gene_id)) {
           axis.title = element_text(size=25)) +
     labs(x='Cancer Type',y='') +
     ggtitle(paste('TCGA Copy Number Variation in', kinase))
-  ggsave(here('mutant_gene_heatmaps','CNV_heatmaps',paste0(kinase,'.svg')),height=2.75)
+  ggsave(here('gene_heatmaps','CNV_heatmaps',paste0(kinase,'.svg')),height=2.75)
+}
+```
+
+```{r mRNA_vis}
+dir.create(here('gene_heatmaps','mRNA_heatmaps'),showWarnings = F)
+
+for (kinase in unique(kinase_mRNA_summary$gene)) {
+  
+  this_kinase = kinase_mRNA_summary %>%
+    filter(gene == kinase)
+  
+  ggplot(this_kinase,aes(x=cohort,y='',fill=average_expression)) +
+    geom_tile() +
+    scale_fill_distiller(direction=1,name="Average\nLog2\nExpression") +
+    theme_berginski() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+          axis.title = element_text(size=25)) +
+    labs(x='Cancer Type',y='') +
+    #block the output of a blank tick mark on the y-axis
+    theme(axis.ticks.y = element_blank()) +
+    ggtitle(paste('TCGA Average Expression for', kinase))
+  ggsave(here('gene_heatmaps','mRNA_heatmaps',paste0(kinase,'.svg')),height=2.75)
 }
 ```
