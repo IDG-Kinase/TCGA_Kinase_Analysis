@@ -13,6 +13,7 @@ library(readr)
 library(here)
 library(tidyverse)
 library(progress)
+library(synapser)
 ```
 
 ## Data Collection/Loading
@@ -70,6 +71,9 @@ kinase_CNV_freq = kinase_CNV %>%
   rename(gene_id = gene)
 
 readr::write_csv(kinase_CNV_freq,here('CNV_analysis','data','kinase_CNV_rates.csv'))
+
+synLogin()
+synStore(File(path=here('CNV_analysis','data','kinase_CNV_rates.csv'), parent='syn13363433'))
 ```
 
 
