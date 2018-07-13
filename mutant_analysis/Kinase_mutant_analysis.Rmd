@@ -13,6 +13,7 @@ library(readr)
 library(here)
 library(tidyverse)
 library(progress)
+library(synapser)
 ```
 
 ## Data Collection/Loading
@@ -95,6 +96,10 @@ kinase_mutation_freq = kinase_MAF %>%
             by=c("gene_id"="symbol"))
 
 readr::write_csv(kinase_mutation_freq,here('mutant_analysis','data','kinase_mutations.csv'))
+
+
+synLogin()
+synStore(File(path=here('mutant_analysis','data','kinase_mutations.csv'), parent='syn13363433'))
 ```
 
 ## Data Visualization {.tabset}
