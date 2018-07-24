@@ -1,26 +1,12 @@
----
-title: "TCGA Kinase CNV Analysis"
-output: github_document 
----
+TCGA Kinase CNV Analysis
+================
 
-```{r, echo = FALSE}
-library(FirebrowseR)
-library(DarkKinaseTools)
-library(BerginskiRMisc)
-library(readr)
-library(here)
-library(tidyverse)
-library(progress)
-library(synapser)
-```
+Data Collection/Loading
+-----------------------
 
-## Data Collection/Loading
+This notebook assumes that you have already run the kinase\_CNV\_download.Rmd document and successfully collected the kinase\_CNV.rds file.
 
-This notebook assumes that you have already run the kinase_CNV_download.Rmd
-document and successfully collected the kinase_CNV.rds file.
-
-```{r data_collection, cache=TRUE}
-
+``` r
 #check if a data file has been made with these results, if so, go ahead and load
 #it, otherwise WARNING!
 if (file.exists(here('CNV_analysis','data','kinase_CNV.rds'))) {
@@ -28,18 +14,16 @@ if (file.exists(here('CNV_analysis','data','kinase_CNV.rds'))) {
 } else {
   warning("Couldn't find the kinase_CNV.rds file, did you run the kinase_CNV_download document?")
 }
-
 ```
 
-## Data Organization/Analysis
+Data Organization/Analysis
+--------------------------
 
-The MAF data is organized to indicate each individual mutation call made in for
-each kinase in each tumor sample. Let's get a count of how often each kinase is
-mutated in each patient and summarize that as a percent.
+The MAF data is organized to indicate each individual mutation call made in for each kinase in each tumor sample. Let's get a count of how often each kinase is mutated in each patient and summarize that as a percent.
 
-```{r data_analysis, cache=TRUE}
+``` r
 #Get the number of samples for each cohort and filter down to only the tumor
-#samples, i.e. not the normal samples
+#samples, i.e. not the normal paired samples
 sample_counts = Metadata.Counts(format='csv') %>% filter(sample_type == "Tumor")
 
 kinase_CNV_freq = kinase_CNV %>%
@@ -67,21 +51,68 @@ kinase_CNV_freq = kinase_CNV %>%
   #remove and rename columns for cleanup
   select(-ends_with('_count'),-matches('cn')) %>%
   rename(gene_id = gene)
+```
 
+    ## Joining, by = "cohort"
+
+    ## Warning: Column `gene`/`symbol` joining character vector and factor,
+    ## coercing into character vector
+
+``` r
 readr::write_csv(kinase_CNV_freq,here('CNV_analysis','data','kinase_CNV_rates.csv'))
 
 synLogin()
+```
+
+    ## Welcome, Matthew Berginski!
+
+    ## NULL
+
+``` r
 synStore(File(path=here('CNV_analysis','data','kinase_CNV_rates.csv'), parent='syn13363433'))
 ```
 
+    ## ################################################## Uploading file to Synapse storage ##################################################
+    Uploading [####################]100.00%   942.7kB/942.7kB  kinase_CNV_rates.csv Done...
 
-## Data Visualization {.tabset}
+    ## File: kinase_CNV_rates.csv (syn13363445)
+    ##   md5=bbee36bc3c4bb1c5edd6f915d0e1d29b
+    ##   fileSize=965284
+    ##   contentType=text/csv
+    ##   externalURL=None
+    ##   cacheDir=/home/mbergins/Documents/Projects/TCGA_Kinase_Analysis/CNV_analysis/data
+    ##   files=['kinase_CNV_rates.csv']
+    ##   path=/home/mbergins/Documents/Projects/TCGA_Kinase_Analysis/CNV_analysis/data/kinase_CNV_rates.csv
+    ##   synapseStore=True
+    ## properties:
+    ##   accessControlList=/repo/v1/entity/syn13363445/acl
+    ##   annotations=/repo/v1/entity/syn13363445/annotations
+    ##   concreteType=org.sagebionetworks.repo.model.FileEntity
+    ##   createdBy=3366786
+    ##   createdOn=2018-07-12T20:26:25.070Z
+    ##   dataFileHandleId=28714319
+    ##   entityType=org.sagebionetworks.repo.model.FileEntity
+    ##   etag=81b4bb4e-9314-443c-8506-ea248a483d5f
+    ##   id=syn13363445
+    ##   modifiedBy=3366786
+    ##   modifiedOn=2018-07-20T20:46:16.986Z
+    ##   name=kinase_CNV_rates.csv
+    ##   parentId=syn13363433
+    ##   uri=/repo/v1/entity/syn13363445
+    ##   versionLabel=2
+    ##   versionNumber=2
+    ##   versionUrl=/repo/v1/entity/syn13363445/version/2
+    ##   versions=/repo/v1/entity/syn13363445/version
+    ## annotations:
+
+Data Visualization
+------------------
 
 Let's start the data analysis with some heatmaps of the frequency of various types of mutation present in the dark kinases.
 
 ### Amplification
 
-```{r amplification, fig.width=17.5}
+``` r
 dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
@@ -106,9 +137,11 @@ ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_amplification)) +
   labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
 ```
 
+![](Kinase_CNV_analysis_files/figure-markdown_github/amplification-1.png)
+
 ### Deletion
 
-```{r deletion, fig.width=17.5}
+``` r
 dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
@@ -132,3 +165,5 @@ ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_deletion)) +
   ggtitle("Frequency of Deletion in TCGA Dark Kinases") +
   labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
 ```
+
+![](Kinase_CNV_analysis_files/figure-markdown_github/deletion-1.png)
