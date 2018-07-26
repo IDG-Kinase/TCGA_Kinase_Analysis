@@ -3,7 +3,7 @@ title: "TCGA Kinase CNV Analysis"
 output: github_document 
 ---
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 library(FirebrowseR)
 library(DarkKinaseTools)
 library(BerginskiRMisc)
@@ -12,6 +12,9 @@ library(here)
 library(tidyverse)
 library(progress)
 library(synapser)
+
+knitr::opts_chunk$set(fig.height=7)
+
 ```
 
 ## Data Collection/Loading
@@ -33,9 +36,15 @@ if (file.exists(here('CNV_analysis','data','kinase_CNV.rds'))) {
 
 ## Data Organization/Analysis
 
-The MAF data is organized to indicate each individual mutation call made in for
-each kinase in each tumor sample. Let's get a count of how often each kinase is
-mutated in each patient and summarize that as a percent.
+The CNV data is organized by sample and gene. In the download script, I only retrieved the kinases, so I'll look at all of the genes in the data set. Also note that the CNV data coded using one of five values:
+
+* 2: Focal level amplification affecting this gene
+* 1: Arm level amplification affecting this gene
+* 0: No amplification/deletion detected
+* -1: Arm level deletion affecting this gene
+* -2: Focal level deletion affecting this gene
+
+My read on the interpretation of these values is that certain amplifications/deletions are observed to varying degrees in full arms of chromosomes and it's unclear whether a given gene happens to be along for the ride on one of these amp/delete arm-level events. The focal amp/deletes on the other hand zoom in on a single gene that appears to have been selective amplified/deleted. 
 
 ```{r data_analysis, cache=TRUE}
 #Get the number of samples for each cohort and filter down to only the tumor
@@ -50,15 +59,20 @@ kinase_CNV_freq = kinase_CNV %>%
   
   #The cn_alteration column contains the call whether or not an amplication (>
   #0) or deletion (< 0) has occurred
-  summarise(Amplified_count = sum(cn_alteration > 0),
-            Deletion_count = sum(cn_alteration < 0)) %>%
+  summarise(Arm_amplified_count = sum(cn_alteration == 1),
+            Focal_amplified_count = sum(cn_alteration == 2),
+            
+            Arm_deletion_count = sum(cn_alteration == -1),
+            Focal_deletion_count = sum(cn_alteration == -2)) %>%
   
   #Collect the cohort counts into the same data structure
   left_join(sample_counts %>% select(cohort,cn)) %>%
   
   #Calculate percentages of amp/deletion
-  mutate(freq_amplification = 100*(Amplified_count/cn),
-         freq_deletion = 100*(Deletion_count/cn)) %>%
+  mutate(freq_arm_amplification = 100*(Arm_amplified_count/cn),
+         freq_focal_amplification = 100*(Focal_amplified_count/cn),
+         freq_arm_deletion = 100*(Arm_deletion_count/cn),
+         freq_focal_deletion = 100*(Focal_deletion_count/cn)) %>%
   
   #Add column with the light/dark classification
   left_join(DarkKinaseTools::all_kinases %>% select(symbol,class),
@@ -66,10 +80,13 @@ kinase_CNV_freq = kinase_CNV %>%
   
   #remove and rename columns for cleanup
   select(-ends_with('_count'),-matches('cn')) %>%
-  rename(gene_id = gene)
+  select(gene,cohort,class,everything())
+   
 
 readr::write_csv(kinase_CNV_freq,here('CNV_analysis','data','kinase_CNV_rates.csv'))
+```
 
+```{r synapse_update, include=FALSE, eval=FALSE}
 synLogin()
 synStore(File(path=here('CNV_analysis','data','kinase_CNV_rates.csv'), parent='syn13363433'))
 ```
@@ -79,56 +96,110 @@ synStore(File(path=here('CNV_analysis','data','kinase_CNV_rates.csv'), parent='s
 
 Let's start the data analysis with some heatmaps of the frequency of various types of mutation present in the dark kinases.
 
-### Amplification
+### Arm-level Amplification
 
-```{r amplification, fig.width=17.5}
+```{r arm-amplification, fig.width=17.5}
 dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
-  group_by(gene_id) %>%
-  summarise(average_mutation = mean(freq_amplification)) %>%
+  group_by(gene) %>%
+  summarise(average_mutation = mean(freq_arm_amplification)) %>%
   arrange(desc(average_mutation))
 
 cohort_sort_order = dark_mutation_freq %>%
   group_by(cohort) %>%
-  summarise(average_mutation = mean(freq_amplification)) %>%
+  summarise(average_mutation = mean(freq_arm_amplification)) %>%
   arrange(average_mutation)
 
-ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_amplification)) + 
+ggplot(dark_mutation_freq,aes(x=gene,y=cohort,fill=freq_arm_amplification)) + 
   geom_tile() + 
   scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
-  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_x_discrete(limits=kinase_sort_order$gene) +
   scale_y_discrete(limits=cohort_sort_order$cohort) +
   theme_berginski() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
         axis.title = element_text(size=25)) +
-  ggtitle("Frequency of Amplification in TCGA Dark Kinases") +
+  ggtitle("Frequency of Arm-level Amplification in TCGA Dark Kinases") +
   labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
 ```
 
-### Deletion
+### Focal Amplification
 
-```{r deletion, fig.width=17.5}
+```{r focal-amplification, fig.width=17.5}
 dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
 
 kinase_sort_order = dark_mutation_freq %>%
-  group_by(gene_id) %>%
-  summarise(average_mutation = mean(freq_deletion)) %>%
+  group_by(gene) %>%
+  summarise(average_mutation = mean(freq_focal_amplification)) %>%
   arrange(desc(average_mutation))
 
 cohort_sort_order = dark_mutation_freq %>%
   group_by(cohort) %>%
-  summarise(average_mutation = mean(freq_deletion)) %>%
+  summarise(average_mutation = mean(freq_focal_amplification)) %>%
   arrange(average_mutation)
 
-ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_deletion)) + 
+ggplot(dark_mutation_freq,aes(x=gene,y=cohort,fill=freq_focal_amplification)) + 
   geom_tile() + 
   scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
-  scale_x_discrete(limits=kinase_sort_order$gene_id) +
+  scale_x_discrete(limits=kinase_sort_order$gene) +
   scale_y_discrete(limits=cohort_sort_order$cohort) +
   theme_berginski() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
         axis.title = element_text(size=25)) +
-  ggtitle("Frequency of Deletion in TCGA Dark Kinases") +
+  ggtitle("Frequency of Focal Amplification in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
+
+### Arm-level Deletion
+
+```{r arm-deletion, fig.width=17.5}
+dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene) %>%
+  summarise(average_mutation = mean(freq_arm_deletion)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_arm_deletion)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene,y=cohort,fill=freq_arm_deletion)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Arm-level Deletion in TCGA Dark Kinases") +
+  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+```
+
+### Focal Deletion
+
+```{r focal-deletion, fig.width=17.5}
+dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
+
+kinase_sort_order = dark_mutation_freq %>%
+  group_by(gene) %>%
+  summarise(average_mutation = mean(freq_focal_deletion)) %>%
+  arrange(desc(average_mutation))
+
+cohort_sort_order = dark_mutation_freq %>%
+  group_by(cohort) %>%
+  summarise(average_mutation = mean(freq_focal_deletion)) %>%
+  arrange(average_mutation)
+
+ggplot(dark_mutation_freq,aes(x=gene,y=cohort,fill=freq_focal_deletion)) + 
+  geom_tile() + 
+  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
+  scale_x_discrete(limits=kinase_sort_order$gene) +
+  scale_y_discrete(limits=cohort_sort_order$cohort) +
+  theme_berginski() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
+        axis.title = element_text(size=25)) +
+  ggtitle("Frequency of Focal Deletion in TCGA Dark Kinases") +
   labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
 ```
