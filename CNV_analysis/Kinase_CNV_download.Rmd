@@ -27,8 +27,10 @@ if (!dir.exists(here('CNV_analysis','data'))) {
 }
 
 #A few of the HUGO gene names are not present in the TCGA data, filter those out
-missing_genes = c("COQ8A","COQ8B","GRK2","GRK3","HASPIN","MAP3K20","MAP3K21",
-                  "NIM1K","PAK5","POMK","PRAG1","PRKY","SBK3","STK26","STKLD1")
+missing_genes = c("COQ8A","COQ8B","CSNK2A3","GRK2","GRK3","HASPIN","MAP3K19",
+                  "MAP3K20","MAP3K21","MOK","NIM1K","PAK5","PEAK1","POMK",
+                  "PRAG1","SBK3","STK26","STKLD1","BUB1B-PAK6","C8orf44-SGK3",
+                  "FPGT-TNNI3K","PDPK2P","SIK1B","TPTEP2-CSNK1E","WEE2-AS1")
 valid_genes = all_kinases %>%
   filter(!symbol %in% missing_genes)
 
