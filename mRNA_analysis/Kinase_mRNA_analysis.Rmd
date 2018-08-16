@@ -1,8 +1,6 @@
 ---
 title: "TCGA Kinase mRNA Analysis"
-output:
-  html_document:
-    df_print: paged
+output: github_document
 ---
 
 ```{r, echo = FALSE}
@@ -22,7 +20,6 @@ This notebook assumes that you have already run the kinase_CNV_download.Rmd
 document and successfully collected the kinase_CNV.rds file.
 
 ```{r data_collection, cache=TRUE}
-
 #check if a data file has been made with these results, if so, go ahead and load
 #it, otherwise WARNING!
 if (file.exists(here('mRNA_analysis','data','kinase_mRNA.rds'))) {
@@ -36,78 +33,32 @@ if (file.exists(here('mRNA_analysis','data','kinase_mRNA.rds'))) {
 
 The mRNA data is organized by patient sample with the primary summary statistic the log2 expression level.
 
-```{r data_analysis, cache=TRUE}
+```{r data_analysis}
+#Some of the expression_log2 values are saved as None, which I'm going to
+#interpret as a zero and replace those values as such.
+
+kinase_mRNA$expression_log2[kinase_mRNA$expression_log2 == "None"] = 0
+kinase_mRNA$expression_log2 = as.numeric(kinase_mRNA$expression_log2)
+
 kinase_mRNA_summary = kinase_mRNA %>%
   filter(sample_type != "NT") %>%
-  group_by(cohort,gene) %>%
-  mutate(expression_numeric = 
-    case_when(
-      is.na(as.numeric(expression_log2)) ~ 0,
-      TRUE ~ as.double(expression_log2)
-    )
-  ) %>% summarise(average_expression = mean(expression_numeric,na.rm=T))
+  group_by(cohort,gene) %>% 
+  summarise(average_expression = mean(expression_log2,na.rm=T))
 
-readr::write_csv(kinase_mRNA_summary,here('mRNA_analysis','data','kinase_mRNA_summary.csv'))
+readr::write_csv(kinase_mRNA_summary,here('mRNA_analysis','data','kinase_mRNA_summary_TCGA.csv'))
 
 synLogin()
 synStore(File(path=here('mRNA_analysis','data','kinase_mRNA_summary.csv'), parent='syn13363433'))
 ```
 
+```{r kinase_correlations}
+kinase_matrix = kinase_mRNA %>% 
+  select(tcga_participant_barcode,gene,expression_log2,cohort,sample_type) %>%
+  mutate(barcode_cohort = paste0(tcga_participant_barcode,'-',cohort,'-',sample_type)) %>%
+  select(barcode_cohort,gene,expression_log2) %>%
+  spread(gene,expression_log2)
 
-## Data Visualization {.tabset}
+kinase_correlations = cor(kinase_matrix[,2:dim(kinase_matrix)[2]])
 
-Let's start the data analysis with some heatmaps of the frequency of various types of mutation present in the dark kinases.
-
-### Amplification
-
-```{r amplification, fig.width=17.5}
-dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
-
-kinase_sort_order = dark_mutation_freq %>%
-  group_by(gene_id) %>%
-  summarise(average_mutation = mean(freq_amplification)) %>%
-  arrange(desc(average_mutation))
-
-cohort_sort_order = dark_mutation_freq %>%
-  group_by(cohort) %>%
-  summarise(average_mutation = mean(freq_amplification)) %>%
-  arrange(average_mutation)
-
-ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_amplification)) + 
-  geom_tile() + 
-  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
-  scale_x_discrete(limits=kinase_sort_order$gene_id) +
-  scale_y_discrete(limits=cohort_sort_order$cohort) +
-  theme_berginski() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
-        axis.title = element_text(size=25)) +
-  ggtitle("Frequency of Amplification in TCGA Dark Kinases") +
-  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
-```
-
-### Deletion
-
-```{r deletion, fig.width=17.5}
-dark_mutation_freq = kinase_CNV_freq %>% filter(class=="Dark")
-
-kinase_sort_order = dark_mutation_freq %>%
-  group_by(gene_id) %>%
-  summarise(average_mutation = mean(freq_deletion)) %>%
-  arrange(desc(average_mutation))
-
-cohort_sort_order = dark_mutation_freq %>%
-  group_by(cohort) %>%
-  summarise(average_mutation = mean(freq_deletion)) %>%
-  arrange(average_mutation)
-
-ggplot(dark_mutation_freq,aes(x=gene_id,y=cohort,fill=freq_deletion)) + 
-  geom_tile() + 
-  scale_fill_distiller(direction=1,palette = 'YlOrRd') + 
-  scale_x_discrete(limits=kinase_sort_order$gene_id) +
-  scale_y_discrete(limits=cohort_sort_order$cohort) +
-  theme_berginski() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust=0.5),
-        axis.title = element_text(size=25)) +
-  ggtitle("Frequency of Deletion in TCGA Dark Kinases") +
-  labs(x='Hugo Gene Symbol',y='TCGA Cancer Cohort',fill="% Patient Samples")
+write.csv(kinase_correlations,here('mRNA_analysis/data/kinase_correlations.csv'))
 ```
