@@ -40,3 +40,5 @@ data/*
 *DS_store
 
 gene_heatmaps/*_heatmaps
+
+PTEN_analysis/gdac*

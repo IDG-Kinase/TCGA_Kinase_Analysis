@@ -1,0 +1,106 @@
+---
+title: "PTEN BRCA Split Processing"
+author: "Matthew Berginski"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(FirebrowseR))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(BerginskiRMisc))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(progress))
+```
+
+## Download Expression Data
+
+I downloaded all of the mRNA sequencing data from firehose, specifically this fantastically long filename:
+
+http://gdac.broadinstitute.org/runs/stddata__2016_01_28/data/BRCA/20160128/gdac.broadinstitute.org_BRCA.Merge_rnaseqv2__illuminahiseq_rnaseqv2__unc_edu__Level_3__RSEM_genes__data.Level_3.2016012800.0.0.tar.gz
+
+As far as I can tell this is the full set of RNAseq data from the breast cancer patients (BRCA). I then uncompressed it in the PTEN_analysis folder.
+
+## Load mRNA Data and Filter
+
+This command loads all the downloaded mRNA data into memory, it takes a few minutes to run.
+
+```{r PTEN Expression Loading}
+mRNA = read_delim(here('PTEN_analysis/gdac.broadinstitute.org_BRCA.Merge_rnaseqv2__illuminahiseq_rnaseqv2__unc_edu__Level_3__RSEM_genes__data.Level_3.2016012800.0.0/BRCA.rnaseqv2__illuminahiseq_rnaseqv2__unc_edu__Level_3__RSEM_genes__data.data.txt'), 
+                  delim ="\t")
+```
+
+## Get PTEN CNV Status
+
+```{r}
+PTEN_CNV = Analyses.CopyNumber.Genes.Thresholded(gene = "PTEN", format="csv", cohort = "BRCA", page_size = 20000)
+
+#Filter samples down to samples with cn alteration number of -2 (deletion) and 0 (no change)
+
+PTEN_CNV_filtered = PTEN_CNV %>%
+  filter(cn_alteration == 0 | cn_alteration == -2)
+
+#Build a regular expression to search through the column names for our patient
+#barcodes and filter the mRNA data set down to just them. Also recast as a
+#data.frame to make the tidy process easier
+search_str = paste0(c(PTEN_CNV_filtered$tcga_participant_barcode,"Hybridization REF"),collapse = "|")
+mRNA_filtered = as.data.frame(mRNA[,grepl(search_str,names(mRNA))])
+
+#Now the mRNA file is formatted so the first entry is the type of measurement in
+#that column, I'm going to filter down to just the raw count columns and the
+#gene_id column and then convert the data into tidy format
+
+mRNA_filtered = mRNA_filtered[,which(mRNA_filtered[1,] == "scaled_estimate" | mRNA_filtered[1,] == "gene_id")] %>%
+  rename(gene_id = `Hybridization REF`) %>%
+  #this tosses the first row, which now only contains the data types, which we
+  #have already filtered down to just the raw count data
+  slice(-1) %>%
+  gather("TCGA_barcode","scaled_estimate",-gene_id) %>%
+  mutate(tcga_participant_barcode = str_extract(TCGA_barcode,'[^-]*-[^-]*-[^-]*'))
+
+#Reset the class of our columns
+mRNA_filtered$gene_id = as.factor(mRNA_filtered$gene_id)
+mRNA_filtered$TCGA_barcode = as.factor(mRNA_filtered$TCGA_barcode)
+mRNA_filtered$tcga_participant_barcode = as.factor(mRNA_filtered$tcga_participant_barcode)
+mRNA_filtered$scaled_estimate = as.numeric(mRNA_filtered$scaled_estimate)
+
+
+#Now that we've filtered down to just the samples we are interested in, we need
+#to determine which of these are from normal tissue (NT) and filter them out.
+# tissue_type_codes = tibble('TCGA_barcode' = character(),short_letter_code=character())
+# for (this_barcode in unique(mRNA_filtered$TCGA_barcode)) {
+#   tissue_type_codes = rbind(tissue_type_codes,
+#                             Metadata.SampleType.Barcode(format = "csv",this_barcode)
+#   )
+# }
+# 
+# non_NT_samples = tissue_type_codes %>%
+#   filter(short_letter_code != "NT")
+
+mRNA_filtered = mRNA_filtered %>%
+  filter(TCGA_barcode %in% non_NT_samples$TCGA_Barcode) %>%
+  left_join(PTEN_CNV_filtered %>% select(tcga_participant_barcode,cn_alteration))
+
+```
+
+```{r}
+mRNA_filtered_gene_filter = mRNA_filtered %>%
+  group_by(gene_id) %>%
+  summarise(average_count = mean(scaled_estimate)) %>%
+  filter(average_count > 5)
+
+mRNA_filtered_high_count = mRNA_filtered %>%
+  filter(gene_id %in% mRNA_filtered_gene_filter$gene_id)
+
+mRNA_averages = mRNA_filtered_high_count %>% 
+  group_by(gene_id,cn_alteration) %>%
+  summarize(average_count = mean(raw_count))
+
+mRNA_diffs = left_join(
+  mRNA_averages %>% filter(cn_alteration == 0) %>% select(-cn_alteration) %>% rename(PTEN_normal_count = average_count),
+  mRNA_averages %>% filter(cn_alteration == -2) %>% select(-cn_alteration) %>% rename(PTEN_deleted_count = average_count)
+) %>%
+  mutate(expression_ratio = PTEN_normal_count/PTEN_deleted_count,
+         expression_diff = PTEN_normal_count - PTEN_deleted_count)
+```
