@@ -1,0 +1,61 @@
+---
+title: "PTEN Syn Lethal Search"
+author: "Matthew Berginski"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(FirebrowseR))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(progress))
+suppressPackageStartupMessages(library(tictoc))
+library(furrr)
+```
+
+```{r download}
+gene_list = read_rds(here('PTEN_analysis/TCGA_gene_list.rds'))
+
+TCGA_cohorts = Metadata.Cohorts(format = "csv")
+
+all_cohort_gene_combo = expand.grid(TCGA_cohorts$cohort,gene_list)
+names(all_cohort_gene_combo) <- c("cohort","gene")
+all_cohort_gene_combo_sample = all_cohort_gene_combo %>% filter(gene == "PTEN" | gene == "CHD1")
+
+get_copy_num_from_TCGA <- function(cohort,gene) {
+  return(try(Analyses.CopyNumber.Genes.Thresholded(gene = as.character(gene), 
+                                                   format="csv", 
+                                                   cohort = as.character(cohort), 
+                                                   page_size = 2000) %>%
+               select(-cytoband,-locus_id,-date)
+             ))
+}
+
+
+for (this_cohort in c('PRAD')) {
+# for (this_cohort in TCGA_cohorts$cohort) {
+  print(this_cohort)
+  tic();
+  
+  plan(multicore); 
+  TCGA_CNV = future_map2(rep(this_cohort,length(gene_list)),
+                         gene_list,
+                         get_copy_num_from_TCGA,
+                         .progress = T)
+  
+  TCGA_CNV_by_name = list()
+  for (i in 1:length(TCGA_CNV_list)) {
+    if (grepl("Error", TCGA_CNV_list[[i]][1])) {
+      next;
+    }
+    
+    gene_name = TCGA_CNV_list[[i]]$gene[1]
+    
+    TCGA_CNV_by_name[[gene_name]] = TCGA_CNV_list[[i]]
+  }
+  write_rds(TCGA_CNV_by_name,here('PTEN_analysis','CNV_data',paste0(this_cohort,'_cnv.rds')))
+  toc();
+}
+```

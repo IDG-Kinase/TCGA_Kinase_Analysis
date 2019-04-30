@@ -1,0 +1,101 @@
+---
+title: "Analyzed TCGA CNV"
+author: "Matthew Berginski"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(FirebrowseR))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(progress))
+suppressPackageStartupMessages(library(tictoc))
+library(furrr)
+```
+
+```{r}
+tic();
+cohort = "BRCA";
+TCGA_CNV_list = read_rds(here('PTEN_analysis/CNV_data',paste0(cohort,'_cnv.rds')));
+TCGA_CNV_deletion_set = c()
+all_deletion_rates = c()
+for (i in 1:length(TCGA_CNV_list)) {
+  if (i %% 1000 == 0) {
+    print(i)
+    print(dim(TCGA_CNV_deletion_set))
+  }
+
+  if (grepl("Error", TCGA_CNV_list[[i]][1])) {
+    next;
+  }
+
+  deletion_rate = sum(TCGA_CNV_list[[i]]$cn_alteration == -2)/dim(TCGA_CNV_list[[i]])[1]
+  all_deletion_rates = c(all_deletion_rates,deletion_rate)
+  if (deletion_rate > 0.05) {
+    TCGA_CNV_deletion_set = rbind(TCGA_CNV_deletion_set,
+                                  TCGA_CNV_list[[i]] %>%
+                                    mutate(rate = deletion_rate))
+  }
+
+}
+
+syn_lethal_overlap_counts = tibble(
+  cohort = character(),
+  gene_1 = character(),
+  gene_2 = character(),
+  overlap_percent = numeric(),
+  overlap_expect = numeric()
+)
+
+for (cohort in unique(TCGA_CNV_deletion_set$cohort)) {
+  this_cohort = TCGA_CNV_deletion_set %>%
+    filter(cohort == cohort)
+
+  this_cohort_only_delete = this_cohort %>%
+    filter(cn_alteration == -2) %>%
+    select(gene,tcga_participant_barcode,rate)
+
+  all_gene_combos = combn(unique(this_cohort$gene),2)
+  print(dim(all_gene_combos))
+  patient_count = length(unique(this_cohort$tcga_participant_barcode))
+
+  for (i in 1:dim(all_gene_combos)[2]) {
+      if (i %% 1000 == 0) {
+        print(i)
+        # print(dim(TCGA_CNV))
+      }
+    gene_set_1 = this_cohort_only_delete %>%
+      filter(gene == all_gene_combos[1,i])
+    gene_set_2 = this_cohort_only_delete %>%
+      filter(gene == all_gene_combos[2,i])
+
+    overlap_count = sum(gene_set_1$tcga_participant_barcode %in%
+                          gene_set_2$tcga_participant_barcode)
+
+    syn_lethal_overlap_counts = syn_lethal_overlap_counts %>%
+      add_row(cohort = cohort,
+              gene_1 = all_gene_combos[1,i],
+              gene_2 = all_gene_combos[2,i],
+              overlap_percent = overlap_count/patient_count,
+              overlap_expect = gene_set_1$rate[1]*gene_set_2$rate[1]
+      )
+  }
+}
+
+syn_lethal_overlap_counts = syn_lethal_overlap_counts %>% 
+  mutate(overlap_diff = overlap_percent - overlap_expect)
+write_rds(syn_lethal_overlap_counts, here('PTEN_analysis','syn_lethal_hits',paste0(cohort,'_syn_lethal.rds')))
+toc();
+```
+
+```{r}
+syn_lethal_filtered = syn_lethal_overlap_counts %>%
+  filter(overlap_diff < 0)
+
+syn_lethal_PTEN = syn_lethal_overlap_counts %>% 
+  mutate(overlap_diff = overlap_percent - overlap_expect) %>%
+  filter(overlap_diff < 0) %>%
+  filter(gene_1 == "PTEN"|gene_2=="PTEN")
+```

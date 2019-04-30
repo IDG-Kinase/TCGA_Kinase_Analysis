@@ -1,0 +1,116 @@
+---
+title: "PTEN BRCA Split Processing"
+author: "Matthew Berginski"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(FirebrowseR))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(BerginskiRMisc))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(progress))
+```
+
+## Download Expression Data
+
+
+
+## Load mRNA Data and Filter
+
+This command loads all the downloaded mRNA data into memory, it takes a few minutes to run.
+
+```{r PTEN Expression Loading}
+BRCA_RPKM = read_delim(here('PTEN_analysis/gdac.broadinstitute.org_BRCA.mRNAseq_Preprocess.Level_3.2016012800.0.0/BRCA.mRNAseq_RPKM.txt'),
+                  delim ="\t") %>%
+  rename(gene_id = `HYBRIDIZATION R`)
+BRCA_raw_counts = read_delim(here('PTEN_analysis/gdac.broadinstitute.org_BRCA.mRNAseq_Preprocess.Level_3.2016012800.0.0/BRCA.mRNAseq_raw_counts.txt'),
+                  delim ="\t") %>%
+  rename(gene_id = `HYBRIDIZATION R`)
+
+BRCA_RPKM_tidy = BRCA_RPKM %>% gather('TCGA_barcode','RPKM',-gene_id)
+BRCA_raw_counts_tidy = BRCA_raw_counts %>% gather('TCGA_barcode','raw_count',-gene_id)
+
+BRCA_raw_count_patient_sum = BRCA_raw_counts_tidy %>%
+  group_by(TCGA_barcode) %>%
+  summarise(total_reads_per_sample = sum(raw_count)/1000000)
+BRCA_raw_counts_tidy = BRCA_raw_counts_tidy %>%
+  left_join(BRCA_raw_count_patient_sum) %>%
+  mutate(reads_per_mil = raw_count/total_reads_per_sample)
+
+
+BRCA_RPKM_tidy_temp = BRCA_RPKM_tidy %>%
+  left_join(BRCA_raw_counts_tidy) %>%
+  mutate(gene_length = reads_per_mil/RPKM)
+```
+
+## Get PTEN CNV Status
+
+```{r}
+BRCA_CNV = read_rds(here('PTEN_analysis/CNV_data/BRCA_cnv.rds'))
+PTEN_CNV = BRCA_CNV[["PTEN"]]
+
+#Build a regular expression to search through the column names for our patient
+#barcodes and filter the mRNA data set down to just them. Also recast as a
+#data.frame to make the tidy process easier
+PTEN_CNV_delete_normal = PTEN_CNV %>%
+  filter(cn_alteration == -2 | cn_alteration == 0) %>%
+  summarise(str = paste0(c(tcga_participant_barcode), collapse="|"))
+
+PTEN_CNV_delete_normal$str = paste0(PTEN_CNV_delete_normal$str,"|Hybridization REF")
+
+BRCA_mRNA_filtered = BRCA_mRNA[,grepl(PTEN_CNV_delete_normal$str,names(BRCA_mRNA))]
+
+#Now the mRNA file is formatted so the first entry is the type of measurement in
+#that column, I'm going to filter down to just the raw count columns and the
+#gene_id column and then convert the data into tidy format
+
+BRCA_mRNA_filtered = BRCA_mRNA_filtered[,which(BRCA_mRNA_filtered[1,] == "scaled_estimate" | BRCA_mRNA_filtered[1,] == "gene_id")] %>%
+  separate(`Hybridization REF`, c('gene_id',NA), sep="\\|") %>%
+  #this tosses the first row, which now only contains the data types, which we
+  #have already filtered down to just the column we want
+  slice(-1) %>%
+  filter(gene_id != "?") %>%
+  gather("TCGA_barcode","scaled_estimate",-gene_id) %>%
+  mutate(tcga_participant_barcode = str_extract(TCGA_barcode,'[^-]*-[^-]*-[^-]*'))
+
+#Reset the class of our columns
+BRCA_mRNA_filtered$gene_id = as.factor(BRCA_mRNA_filtered$gene_id)
+BRCA_mRNA_filtered$TCGA_barcode = as.factor(BRCA_mRNA_filtered$TCGA_barcode)
+BRCA_mRNA_filtered$tcga_participant_barcode = as.factor(BRCA_mRNA_filtered$tcga_participant_barcode)
+# BRCA_mRNA_filtered$raw_count = as.numeric(BRCA_mRNA_filtered$raw_count)
+BRCA_mRNA_filtered$scaled_estimate = as.numeric(BRCA_mRNA_filtered$scaled_estimate)
+
+
+BRCA_mRNA_filtered = BRCA_mRNA_filtered %>% left_join(PTEN_CNV)
+```
+
+```{r overall diffs}
+mRNA_averages = BRCA_mRNA_filtered %>% 
+  group_by(gene_id,cn_alteration) %>%
+  summarize(average_count = mean(scaled_estimate))
+
+mRNA_diffs = left_join(
+  mRNA_averages %>% filter(cn_alteration == 0) %>% select(-cn_alteration) %>% rename(PTEN_normal_count = average_count),
+  mRNA_averages %>% filter(cn_alteration == -2) %>% select(-cn_alteration) %>% rename(PTEN_deleted_count = average_count)
+) %>% 
+  filter(PTEN_normal_count > 2, PTEN_deleted_count > 2) %>%
+  mutate(expression_ratio = log2(PTEN_normal_count/PTEN_deleted_count),
+         expression_diff = PTEN_normal_count - PTEN_deleted_count)
+
+mRNA_diff_hits = mRNA_diffs %>%
+  filter(abs(expression_ratio) > 2) %>%
+  arrange(desc(abs(expression_ratio)))
+
+BRCA_log2_diff_data = BRCA_mRNA_filtered %>%
+  filter(gene_id %in% mRNA_diff_hits$gene_id[1:10]) %>%
+  mutate(delete_text = ifelse(cn_alteration == 0, 'Normal','Deleted'))
+
+
+```
+
+```{r syn lethal hits}
+BRCA_syn_lethal = read_rds(here('PTEN_analysis/syn_lethal_hits/BRCA_syn_lethal.rds'))
+```

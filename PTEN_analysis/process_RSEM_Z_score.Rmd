@@ -1,0 +1,116 @@
+---
+title: "Process RSEM Z Score"
+author: "Matthew Berginski"
+date: "April 30, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(FirebrowseR))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(BerginskiRMisc))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(progress))
+```
+
+
+This command loads all the downloaded mRNA data into memory, it takes a few minutes to run.
+
+```{r PTEN Expression Loading}
+BRCA_RSEM_Z = read_delim(here('PTEN_analysis/gdac.broadinstitute.org_BRCA.mRNAseq_Preprocess.Level_3.2016012800.0.0/BRCA.uncv2.mRNAseq_RSEM_Z_Score.txt'), delim ="\t")
+
+BRCA_RSEM_all = read_delim(here('PTEN_analysis/gdac.broadinstitute.org_BRCA.mRNAseq_Preprocess.Level_3.2016012800.0.0/BRCA.uncv2.mRNAseq_RSEM_all.txt'), delim ="\t")
+```
+
+## Get PTEN CNV Status
+
+```{r}
+BRCA_CNV = read_rds(here('PTEN_analysis/CNV_data/BRCA_cnv.rds'))
+PTEN_CNV = BRCA_CNV[["PTEN"]]
+
+#Build a regular expression to search through the column names for our patient
+#barcodes and filter the mRNA data set down to just them. Also recast as a
+#data.frame to make the tidy process easier
+PTEN_CNV_delete_normal = PTEN_CNV %>%
+  filter(cn_alteration == -2 | cn_alteration == 0) %>%
+  summarise(str = paste0(c(tcga_participant_barcode), collapse="|"))
+
+PTEN_CNV_delete_normal$str = paste0(PTEN_CNV_delete_normal$str,"|gene")
+
+BRCA_RSEM_Z_filtered = BRCA_RSEM_Z[,grepl(PTEN_CNV_delete_normal$str,names(BRCA_RSEM_Z))] %>%
+  separate(`gene`, c('gene_id',NA), sep="\\|") %>%
+  filter(gene_id != "?") %>%
+  gather("TCGA_barcode","RSEM_Z",-gene_id) %>%
+  mutate(tcga_participant_barcode = str_extract(TCGA_barcode,'[^-]*-[^-]*-[^-]*'))
+
+BRCA_RSEM_all_filtered = BRCA_RSEM_all[,grepl(paste0(PTEN_CNV_delete_normal$str,'|HYBRIDIZATION R'),names(BRCA_RSEM_all))] %>%
+  separate(`HYBRIDIZATION R`, c('gene_id',NA), sep="\\|") %>%
+  filter(gene_id != "?") %>%
+  gather("TCGA_barcode","RSEM",-gene_id) %>%
+  mutate(tcga_participant_barcode = str_extract(TCGA_barcode,'[^-]*-[^-]*-[^-]*'))
+
+BRCA_RSEM_combined = BRCA_RSEM_Z_filtered %>% 
+  left_join(BRCA_RSEM_all_filtered) %>%
+  left_join(PTEN_CNV %>% select(tcga_participant_barcode,cn_alteration)) %>%
+  mutate(delete_text = ifelse(cn_alteration == 0, 'Normal','Deleted'))
+
+#Reset the class of our columns
+BRCA_RSEM_combined$gene_id = as.factor(BRCA_RSEM_combined$gene_id)
+BRCA_RSEM_combined$TCGA_barcode = as.factor(BRCA_RSEM_combined$TCGA_barcode)
+BRCA_RSEM_combined$tcga_participant_barcode = as.factor(BRCA_RSEM_combined$tcga_participant_barcode)
+BRCA_RSEM_combined$RSEM_Z = as.numeric(BRCA_RSEM_combined$RSEM_Z)
+BRCA_RSEM_combined$RSEM = as.numeric(BRCA_RSEM_combined$RSEM)
+```
+
+```{r overall diffs}
+PTEN_split_average = BRCA_RSEM_combined %>% 
+  group_by(gene_id,cn_alteration) %>%
+  summarize(average_Z = mean(RSEM_Z),
+            average_RSEM = mean(RSEM),
+            median_RSEM = median(RSEM))
+
+mRNA_diffs = left_join(
+  PTEN_split_average %>% 
+    filter(cn_alteration == 0) %>% 
+    select(-cn_alteration) %>% 
+    rename(PTEN_normal_mean_Z = average_Z, PTEN_normal_mean_RSEM = average_RSEM, PTEN_normal_median_RSEM = median_RSEM),
+  PTEN_split_average %>% 
+    filter(cn_alteration == -2) %>% 
+    select(-cn_alteration) %>% 
+    rename(PTEN_deleted_mean_Z = average_Z, PTEN_deleted_mean_RSEM = average_RSEM, PTEN_deleted_median_RSEM = median_RSEM)
+) %>% mutate(Z_score_diff = PTEN_normal_mean_Z - PTEN_deleted_mean_Z, 
+             log2_fold_change = log2(PTEN_normal_mean_RSEM/PTEN_deleted_mean_RSEM),
+             log2_median_change = log2(PTEN_normal_median_RSEM/PTEN_deleted_median_RSEM)) %>% 
+  filter(abs(log2_fold_change) > 2, PTEN_normal_mean_RSEM > 2, PTEN_deleted_mean_RSEM > 2) %>%
+  arrange(desc(abs(log2_fold_change)))
+
+write_csv(mRNA_diffs, here('PTEN_analysis/PTEN_deleted_2fold_change_genes.csv'))
+```
+
+```{r}
+top_ten_z_diff = BRCA_RSEM_combined %>% 
+  filter(gene_id %in% mRNA_diffs$gene_id[1:10])
+top_ten_z_diff$gene_id = factor(top_ten_z_diff$gene_id, levels=mRNA_diffs$gene_id[1:10])
+
+ggplot(top_ten_z_diff, aes(x=delete_text,y=RSEM)) + 
+  geom_boxplot() + 
+  scale_y_log10() +
+  # scale_y_continuous(trans = scales::log2_trans()) + 
+  theme(axis.text.x = element_text(angle = 90,vjust=0.5)) +
+  labs(x="PTEN Status",y="RSEM (log 10 scale)") +
+  theme_berginski() +
+  facet_grid(. ~ gene_id, scales="free")
+
+ggsave(here('PTEN_analysis/PTEN_2fold_top_ten.png'))
+```
+
+```{r syn lethal hits}
+BRCA_syn_lethal = read_rds(here('PTEN_analysis/syn_lethal_hits/BRCA_syn_lethal.rds')) %>% 
+  filter(overlap_diff < 0)
+
+ggplot(BRCA_RSEM_Z_filtered %>% filter(gene_id == "SGK223"),
+       aes(x=delete_text,y=RSEM_log2)) + geom_boxplot()
+
+```
