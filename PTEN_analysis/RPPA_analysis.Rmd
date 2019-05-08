@@ -1,0 +1,68 @@
+---
+title: "RPPA Analysis"
+author: "Matthew Berginski"
+date: "5/2/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(FirebrowseR))
+suppressPackageStartupMessages(library(DarkKinaseTools))
+suppressPackageStartupMessages(library(BerginskiRMisc))
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(here))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(progress))
+library(broom)
+```
+
+```{r}
+BRCA_RPPA = read_delim(here('PTEN_analysis/gdac.broadinstitute.org_BRCA.RPPA_AnnotateWithGene.Level_3.2016012800.0.0/BRCA.rppa.txt'),
+                       delim="\t")
+```
+
+```{r}
+BRCA_CNV = read_rds(here('PTEN_analysis/CNV_data/BRCA_cnv.rds'))
+PTEN_CNV = BRCA_CNV[["PTEN"]]
+
+#Build a regular expression to search through the column names for our patient
+#barcodes and filter the mRNA data set down to just them. Also recast as a
+#data.frame to make the tidy process easier
+PTEN_CNV_delete_normal = PTEN_CNV %>%
+  filter(cn_alteration == -2 | cn_alteration == 0) %>%
+  summarise(str = paste0(c(tcga_participant_barcode), collapse="|"))
+
+PTEN_CNV_delete_normal$str = paste0(PTEN_CNV_delete_normal$str,"|Composite.Element.REF")
+
+BRCA_RPPA_filtered = BRCA_RPPA[,grepl(PTEN_CNV_delete_normal$str,names(BRCA_RPPA))] %>%
+  separate(Composite.Element.REF, c('gene_id',NA), sep="\\|") %>%
+  filter(gene_id != "?") %>%
+  gather("TCGA_barcode","protein_expression",-gene_id) %>%
+  mutate(tcga_participant_barcode = str_extract(TCGA_barcode,'[^-]*-[^-]*-[^-]*')) %>%
+  left_join(PTEN_CNV)
+```
+
+```{r}
+calc_RPPA_fold_change <- function(RPPA_gene_set) {
+  deleted_set = RPPA_gene_set %>% filter(cn_alteration == -2)
+  normal_set = RPPA_gene_set %>% filter(cn_alteration == 0)
+  
+  return(mean(deleted_set$protein_expression, na.rm=T)/mean(normal_set$protein_expression, na.rm=T))
+}
+
+calc_RPPA_p_val <- function(RPPA_gene_set) {
+  return(tidy(wilcox.test(protein_expression ~ cn_alteration,data=RPPA_gene_set))$p.value)
+}
+
+BRCA_RPPA_fold_changes = BRCA_RPPA_filtered %>%
+  group_by(gene_id) %>%
+  nest() %>%
+  mutate(deletion_fold_change = map(data,calc_RPPA_fold_change),
+         deletion_p_val = map(data,calc_RPPA_p_val),) %>%
+  select(-data) %>%
+  unnest() %>%
+  mutate(deletion_p_val_adjusted = p.adjust(deletion_p_val))
+
+BRCA_RPPA_fold_changes_filtered = BRCA_RPPA_fold_changes %>%
+  filter(deletion_p_val_adjusted < 0.05)
+```
