@@ -1,0 +1,19 @@
+---
+title: "Clincal File Processing"
+author: "Matthew Berginski"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r}
+clinical_data = read_delim(here('PTEN_analysis/raw_data/gdac.broadinstitute.org_BRCA.Clinical_Pick_Tier1.Level_4.2016012800.0.0/All_CDEs.txt'),
+                           delim="\t") %>%
+  gather('TCGA_ID','value',-bcr_patient_barcode) %>% 
+  rename(clinical_data_type=bcr_patient_barcode) %>% 
+  select(TCGA_ID,everything()) %>%
+  write_csv(here('PTEN_analysis/BRCA_clinical_data_tidy.csv'))
+```
